@@ -8,24 +8,25 @@ package raft
 type CM struct {
 	self string
 
-	currentTerm int
+	currentTerm uint32
 	votedFor    string
 	log         []string
-	commitIndex int
-	lastApplied int
-	nextIndex   []int
-	matchIndex  []int
+	commitIndex uint32
+	lastApplied uint32
+	nextIndex   []uint32
+	matchIndex  []uint32
 }
 
 func New(addr string) *CM {
 	return &CM{
-		self:        addr,
+		self: addr,
+
 		currentTerm: 0,
 		votedFor:    "",
 		log:         []string{},
 		commitIndex: 0,
 		lastApplied: 0,
-		nextIndex:   []int{},
-		matchIndex:  []int{},
+		nextIndex:   []uint32{},
+		matchIndex:  []uint32{},
 	}
 }
