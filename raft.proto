@@ -1,4 +1,6 @@
 syntax="proto3";
+package raft;
+option go_package = "github.com/amodkala/raft";
 
 service Raft {
     rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse) {}
