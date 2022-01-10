@@ -10,7 +10,7 @@ func (cm *CM) becomeFollower(term uint32) {
 	cm.lastReset = time.Now()
 	cm.Unlock()
 
-	cm.startElectionTimer()
+	go cm.startElectionTimer()
 }
 
 func (cm *CM) becomeCandidate() {
@@ -22,4 +22,9 @@ func (cm *CM) becomeCandidate() {
 	cm.startElection()
 }
 
-func (cm *CM) becomeLeader() {}
+func (cm *CM) becomeLeader() {
+	cm.Lock()
+	cm.state = "leader"
+	cm.leader = cm.self
+	cm.Unlock()
+}

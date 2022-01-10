@@ -19,6 +19,7 @@ type CM struct {
 	address   string
 	state     string
 	leader    string
+	peers     map[string]proto.RaftClient
 	lastReset time.Time
 
 	currentTerm uint32
