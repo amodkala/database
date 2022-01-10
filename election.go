@@ -57,13 +57,14 @@ func (cm *CM) startElection() {
 
 	votes := 1
 
+	req := &proto.RequestVoteRequest{
+		Term:        electionTerm,
+		CandidateId: cm.self,
+	}
+
 	for _, peer := range cm.peers {
 
 		go func(peer proto.RaftClient) {
-			req := &proto.RequestVoteRequest{
-				Term:        electionTerm,
-				CandidateId: cm.self,
-			}
 			if res, err := peer.RequestVote(context.Background(), req); err == nil {
 				cm.Lock()
 				defer cm.Unlock()
