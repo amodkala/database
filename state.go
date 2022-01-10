@@ -2,7 +2,7 @@ package raft
 
 import "time"
 
-func (cm *CM) becomeFollower(term uint32) {
+func (cm *CM) becomeFollower(term int32) {
 	cm.Lock()
 	cm.state = "follower"
 	cm.currentTerm = term

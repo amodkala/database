@@ -24,14 +24,62 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 	}
 
 	if req.Term == cm.currentTerm {
+		if cm.leader != req.LeaderId {
+			cm.leader = req.LeaderId
+		}
 		if cm.state != "follower" {
 			cm.becomeFollower(req.Term)
 		}
 		cm.lastReset = time.Now()
-		res.Success = true
+
+		if req.PrevLogIndex == -1 ||
+			(req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term) {
+			res.Success = true
+
+			logInsertIndex := req.PrevLogIndex + 1
+			newEntriesIndex := 0
+
+			for {
+				if logInsertIndex >= int32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
+					break
+				}
+				if cm.log[logInsertIndex].Term != req.Entries[newEntriesIndex].Term {
+					break
+				}
+				logInsertIndex++
+				newEntriesIndex++
+			}
+
+			if newEntriesIndex < len(req.Entries) {
+				cm.log = append(cm.log[:logInsertIndex], req.Entries[newEntriesIndex:]...)
+			}
+
+			if req.LeaderCommit > cm.commitIndex {
+				cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
+				if cm.commitIndex > cm.lastApplied {
+					// tell client these have been committed
+					cm.Lock()
+					entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
+					cm.lastApplied = cm.commitIndex
+					cm.Unlock()
+
+					for _, entry := range entries {
+						cm.committed <- entry.Command
+					}
+				}
+			}
+
+		}
 	}
 
 	return res, nil
+}
+
+func min(a, b int32) int32 {
+	if a > b {
+		return b
+	}
+	return a
 }
 
 //
@@ -40,6 +88,16 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*proto.RequestVoteResponse, error) {
 	cm.Lock()
 	defer cm.Unlock()
+
+	var lastLogIndex, lastLogTerm int32
+
+	if len(cm.log) > 0 {
+		lastLogIndex = int32(len(cm.log) - 1)
+		lastLogTerm = cm.log[lastLogIndex].Term
+	} else {
+		lastLogIndex = -1
+		lastLogTerm = -1
+	}
 
 	res := &proto.RequestVoteResponse{
 		Term: cm.currentTerm,
@@ -50,7 +108,9 @@ func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*
 	}
 
 	if req.Term == cm.currentTerm &&
-		(cm.votedFor == "" || cm.votedFor == req.CandidateId) {
+		(cm.votedFor == "" || cm.votedFor == req.CandidateId) &&
+		(req.LastLogTerm > lastLogTerm ||
+			(req.LastLogTerm == lastLogTerm && req.LastLogIndex >= lastLogIndex)) {
 		res.VoteGranted = true
 		cm.votedFor = req.CandidateId
 		cm.lastReset = time.Now()

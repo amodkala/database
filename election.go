@@ -57,14 +57,29 @@ func (cm *CM) startElection() {
 
 	votes := 1
 
-	req := &proto.RequestVoteRequest{
-		Term:        electionTerm,
-		CandidateId: cm.self,
-	}
-
 	for _, peer := range cm.peers {
 
 		go func(peer proto.RaftClient) {
+
+			var lastLogIndex, lastLogTerm int32
+
+			cm.Lock()
+			if len(cm.log) > 0 {
+				lastLogIndex = int32(len(cm.log) - 1)
+				lastLogTerm = cm.log[lastLogIndex].Term
+			} else {
+				lastLogIndex = -1
+				lastLogTerm = -1
+			}
+
+			req := &proto.RequestVoteRequest{
+				Term:         electionTerm,
+				CandidateId:  cm.self,
+				LastLogIndex: lastLogIndex,
+				LastLogTerm:  lastLogTerm,
+			}
+			cm.Unlock()
+
 			if res, err := peer.RequestVote(context.Background(), req); err == nil {
 				cm.Lock()
 				defer cm.Unlock()

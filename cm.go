@@ -16,30 +16,35 @@ type CM struct {
 	sync.Mutex
 
 	self      string
-	address   string
 	state     string
 	leader    string
 	peers     map[string]proto.RaftClient
+	committed chan string
 	lastReset time.Time
 
-	currentTerm uint32
+	currentTerm int32
 	votedFor    string
-	log         []proto.Entry
-	commitIndex uint32
-	lastApplied uint32
-	nextIndex   []uint32
-	matchIndex  []uint32
+	log         []*proto.Entry
+	commitIndex int32
+	lastApplied int32
+	nextIndex   map[string]int32
+	matchIndex  map[string]int32
 }
 
-func New(name, addr string) *CM {
+//
+// New initializes a CM with some of its default values, the rest are
+// initialized when Start is called
+//
+func New(out chan string) *CM {
+	// TODO: add peer discovery
+	// TODO: add distinct id + address fields
 	return &CM{
 		Mutex:       sync.Mutex{},
-		self:        name,
-		address:     addr,
-		log:         []proto.Entry{},
+		committed:   out,
+		log:         []*proto.Entry{},
 		commitIndex: 0,
 		lastApplied: 0,
-		nextIndex:   []uint32{},
-		matchIndex:  []uint32{},
+		nextIndex:   make(map[string]int32),
+		matchIndex:  make(map[string]int32),
 	}
 }
