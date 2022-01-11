@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/amodkala/raft/proto"
@@ -51,6 +52,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 			}
 
 			if newEntriesIndex < len(req.Entries) {
+				log.Printf("%s added entries to log %v\n", cm.self, req.Entries)
 				cm.log = append(cm.log[:logInsertIndex], req.Entries[newEntriesIndex:]...)
 			}
 

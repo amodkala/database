@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"time"
 
@@ -57,9 +58,9 @@ func (cm *CM) startElection() {
 
 	votes := 1
 
-	for _, peer := range cm.peers {
+	for id, peer := range cm.peers {
 
-		go func(peer proto.RaftClient) {
+		go func(id string, peer proto.RaftClient) {
 
 			var lastLogIndex, lastLogTerm int32
 
@@ -96,6 +97,7 @@ func (cm *CM) startElection() {
 				if res.Term == electionTerm {
 					if res.VoteGranted {
 						votes += 1
+						log.Printf("%s got vote from %s\n", cm.self, id)
 						if votes > len(cm.peers)/2 {
 							cm.becomeLeader()
 							return
@@ -104,7 +106,7 @@ func (cm *CM) startElection() {
 
 				}
 			}
-		}(peer)
+		}(id, peer)
 	}
 
 	go cm.startElectionTimer()
