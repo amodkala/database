@@ -13,8 +13,8 @@ import (
 // stored
 //
 type Entry struct {
-	Key   []byte
-	Value []byte
+	Key   string
+	Value string
 }
 
 //
