@@ -8,13 +8,13 @@ import (
 
 func (cm *CM) sendHeartbeats() {
 
-	cm.Lock()
+	cm.mu.Lock()
 	heartbeatTerm := cm.currentTerm
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	for id, peer := range cm.peers {
 		go func(id string, peer proto.RaftClient) {
-			cm.Lock()
+			cm.mu.Lock()
 			nextIndex := cm.nextIndex[id]
 			prevLogIndex := nextIndex - 1
 			prevLogTerm := cm.log[prevLogIndex].Term
@@ -28,13 +28,13 @@ func (cm *CM) sendHeartbeats() {
 				Entries:      entries,
 				LeaderCommit: cm.commitIndex,
 			}
-			cm.Unlock()
+			cm.mu.Unlock()
 
 			res, err := peer.AppendEntries(context.Background(), req)
 			// TODO: handle case where res == nil
 			if err == nil {
-				cm.Lock()
-				defer cm.Unlock()
+				cm.mu.Lock()
+				defer cm.mu.Unlock()
 				if res.Term > heartbeatTerm {
 					cm.becomeFollower(res.Term)
 					return
@@ -63,10 +63,10 @@ func (cm *CM) sendHeartbeats() {
 					if savedCommitIndex != cm.commitIndex {
 						if cm.commitIndex > cm.lastApplied {
 							// tell client these have been committed
-							cm.Lock()
+							cm.mu.Lock()
 							entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
 							cm.lastApplied = cm.commitIndex
-							cm.Unlock()
+							cm.mu.Unlock()
 
 							for _, entry := range entries {
 								result := Entry{Key: entry.Key, Value: entry.Value}

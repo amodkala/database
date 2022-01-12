@@ -12,8 +12,8 @@ import (
 // AppendEntries implements a client response to an AppendEntries RPC received from a peer
 //
 func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest) (*proto.AppendEntriesResponse, error) {
-	cm.Lock()
-	defer cm.Unlock()
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
 	res := &proto.AppendEntriesResponse{
 		Term:    cm.currentTerm,
@@ -60,10 +60,10 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 				cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
 				if cm.commitIndex > cm.lastApplied {
 					// tell client these have been committed
-					cm.Lock()
+					cm.mu.Lock()
 					entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
 					cm.lastApplied = cm.commitIndex
-					cm.Unlock()
+					cm.mu.Unlock()
 
 					for _, entry := range entries {
 						result := Entry{Key: entry.Key, Value: entry.Value}
@@ -89,8 +89,8 @@ func min(a, b int32) int32 {
 // RequestVote implements a client response to a RequestVote RPC received from a peer
 //
 func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*proto.RequestVoteResponse, error) {
-	cm.Lock()
-	defer cm.Unlock()
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
 	var lastLogIndex, lastLogTerm int32
 

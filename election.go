@@ -10,9 +10,9 @@ import (
 )
 
 func (cm *CM) startElectionTimer() {
-	cm.Lock()
+	cm.mu.Lock()
 	termStarted := cm.currentTerm
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	timerLength := newDuration()
 
@@ -22,23 +22,23 @@ func (cm *CM) startElectionTimer() {
 	for {
 		<-ticker.C
 
-		cm.Lock()
+		cm.mu.Lock()
 		if cm.state == "leader" {
-			cm.Unlock()
+			cm.mu.Unlock()
 			return
 		}
 
 		if cm.currentTerm != termStarted {
-			cm.Unlock()
+			cm.mu.Unlock()
 			return
 		}
 
 		if time.Since(cm.lastReset) >= timerLength {
-			cm.Unlock()
+			cm.mu.Unlock()
 			cm.becomeCandidate()
 			return
 		}
-		cm.Unlock()
+		cm.mu.Unlock()
 	}
 }
 
@@ -50,11 +50,11 @@ func newDuration() time.Duration {
 }
 
 func (cm *CM) startElection() {
-	cm.Lock()
+	cm.mu.Lock()
 	electionTerm := cm.currentTerm
 	cm.lastReset = time.Now()
 	cm.votedFor = cm.self
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	votes := 1
 
@@ -64,7 +64,7 @@ func (cm *CM) startElection() {
 
 			var lastLogIndex, lastLogTerm int32
 
-			cm.Lock()
+			cm.mu.Lock()
 			if len(cm.log) > 0 {
 				lastLogIndex = int32(len(cm.log) - 1)
 				lastLogTerm = cm.log[lastLogIndex].Term
@@ -79,11 +79,11 @@ func (cm *CM) startElection() {
 				LastLogIndex: lastLogIndex,
 				LastLogTerm:  lastLogTerm,
 			}
-			cm.Unlock()
+			cm.mu.Unlock()
 
 			if res, err := peer.RequestVote(context.Background(), req); err == nil {
-				cm.Lock()
-				defer cm.Unlock()
+				cm.mu.Lock()
+				defer cm.mu.Unlock()
 
 				if cm.state != "candidate" {
 					return

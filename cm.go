@@ -23,7 +23,7 @@ type Entry struct {
 // of the original paper.
 //
 type CM struct {
-	sync.Mutex
+	mu sync.Mutex
 
 	self       string
 	state      string
@@ -49,7 +49,7 @@ func New() *CM {
 	// TODO: add peer discovery
 	// TODO: add distinct id + address fields
 	return &CM{
-		Mutex:       sync.Mutex{},
+		mu:          sync.Mutex{},
 		CommitChan:  make(chan Entry),
 		log:         []*proto.Entry{},
 		commitIndex: 0,

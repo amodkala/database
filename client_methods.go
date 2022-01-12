@@ -9,9 +9,9 @@ import (
 )
 
 func (cm *CM) Start(addr string) {
-	cm.Lock()
+	cm.mu.Lock()
 	cm.self = addr
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	lis, err := net.Listen("tcp", cm.self)
 	if err != nil {
@@ -30,8 +30,8 @@ func (cm *CM) Start(addr string) {
 // all peers
 //
 func (cm *CM) Replicate(entries []Entry) bool {
-	cm.Lock()
-	defer cm.Unlock()
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
 	// TODO: support request rerouting to leader
 	if cm.state == "leader" {

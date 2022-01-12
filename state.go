@@ -6,33 +6,33 @@ import (
 )
 
 func (cm *CM) becomeFollower(term int32) {
-	cm.Lock()
+	cm.mu.Lock()
 	cm.state = "follower"
 	cm.currentTerm = term
 	cm.votedFor = ""
 	cm.lastReset = time.Now()
 	log.Printf("%s became follower in term %d\n", cm.self, cm.currentTerm)
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	go cm.startElectionTimer()
 }
 
 func (cm *CM) becomeCandidate() {
-	cm.Lock()
+	cm.mu.Lock()
 	cm.state = "candidate"
 	cm.currentTerm += 1
 	log.Printf("%s became candidate in term %d\n", cm.self, cm.currentTerm)
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	cm.startElection()
 }
 
 func (cm *CM) becomeLeader() {
-	cm.Lock()
+	cm.mu.Lock()
 	cm.state = "leader"
 	cm.leader = cm.self
 	log.Printf("***** %s became leader in term %d *****\n", cm.self, cm.currentTerm)
-	cm.Unlock()
+	cm.mu.Unlock()
 
 	go func() {
 		ticker := time.NewTicker(time.Duration(50) * time.Millisecond)
@@ -42,12 +42,12 @@ func (cm *CM) becomeLeader() {
 			cm.sendHeartbeats()
 			<-ticker.C
 
-			cm.Lock()
+			cm.mu.Lock()
 			if cm.state != "leader" {
-				cm.Unlock()
+				cm.mu.Unlock()
 				return
 			}
-			cm.Unlock()
+			cm.mu.Unlock()
 		}
 	}()
 }
