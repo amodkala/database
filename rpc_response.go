@@ -66,7 +66,8 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 					cm.Unlock()
 
 					for _, entry := range entries {
-						cm.committed <- entry.Command
+						result := Entry{Key: []byte(entry.Key), Value: []byte(entry.Value)}
+						cm.CommitChan <- result
 					}
 				}
 			}

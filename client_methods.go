@@ -1,27 +1,27 @@
 package raft
 
 import (
-	"fmt"
+	"log"
 	"net"
 
 	"github.com/amodkala/raft/proto"
 	"google.golang.org/grpc"
 )
 
-func (cm *CM) Start(addr string) error {
+func (cm *CM) Start(addr string) {
 	cm.Lock()
 	cm.self = addr
 	cm.Unlock()
 
 	lis, err := net.Listen("tcp", cm.self)
 	if err != nil {
-		return fmt.Errorf("failed to listen -> %v", err)
+		log.Fatalf("failed to listen -> %v", err)
 	}
 	server := grpc.NewServer()
 	proto.RegisterRaftServer(server, cm)
 
 	cm.becomeFollower(0)
-	return server.Serve(lis)
+	server.Serve(lis)
 }
 
 //
@@ -29,16 +29,17 @@ func (cm *CM) Start(addr string) error {
 // and if it is the leader it replicates the command across
 // all peers
 //
-func (cm *CM) Replicate(commands []string) bool {
+func (cm *CM) Replicate(entries []Entry) bool {
 	cm.Lock()
 	defer cm.Unlock()
 
 	// TODO: support request rerouting to leader
 	if cm.state == "leader" {
-		for _, command := range commands {
+		for _, entry := range entries {
 			cm.log = append(cm.log, &proto.Entry{
-				Term:    cm.currentTerm,
-				Command: command,
+				Term:  cm.currentTerm,
+				Key:   string(entry.Key),
+				Value: string(entry.Value),
 			})
 		}
 		return true

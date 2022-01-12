@@ -69,7 +69,8 @@ func (cm *CM) sendHeartbeats() {
 							cm.Unlock()
 
 							for _, entry := range entries {
-								cm.committed <- entry.Command
+								result := Entry{Key: []byte(entry.Key), Value: []byte(entry.Value)}
+								cm.CommitChan <- result
 							}
 						}
 					}

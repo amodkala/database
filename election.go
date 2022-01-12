@@ -98,15 +98,16 @@ func (cm *CM) startElection() {
 					if res.VoteGranted {
 						votes += 1
 						log.Printf("%s got vote from %s\n", cm.self, id)
-						if votes > len(cm.peers)/2 {
-							cm.becomeLeader()
-							return
-						}
 					}
 
 				}
 			}
 		}(id, peer)
+	}
+
+	if votes > len(cm.peers)/2 {
+		cm.becomeLeader()
+		return
 	}
 
 	go cm.startElectionTimer()

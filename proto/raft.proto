@@ -18,7 +18,8 @@ message AppendEntriesRequest {
 
 message Entry {
     int32 term = 1;
-    string command = 2;
+    string key = 3; 
+    string value = 4;
 }
 
 message AppendEntriesResponse{
