@@ -21,6 +21,7 @@ func (cm *CM) Start(addr string) {
 	proto.RegisterRaftServer(server, cm)
 
 	cm.becomeFollower(0)
+	log.Printf("starting consensus module at %s\n", addr)
 	server.Serve(lis)
 }
 
@@ -36,6 +37,7 @@ func (cm *CM) Replicate(entries []Entry) bool {
 	// TODO: support request rerouting to leader
 	if cm.state == "leader" {
 		for _, entry := range entries {
+			log.Printf("%s adding entry %v to log\n", cm.self, entry)
 			cm.log = append(cm.log, &proto.Entry{
 				Term:  cm.currentTerm,
 				Key:   string(entry.Key),
