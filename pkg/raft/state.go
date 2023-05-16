@@ -39,7 +39,6 @@ func (cm *CM) becomeLeader() {
 		defer ticker.Stop()
 
 		for {
-			cm.sendHeartbeats()
 			<-ticker.C
 
 			cm.mu.Lock()
@@ -48,6 +47,8 @@ func (cm *CM) becomeLeader() {
 				return
 			}
 			cm.mu.Unlock()
+
+			cm.sendHeartbeats()
 		}
 	}()
 }
