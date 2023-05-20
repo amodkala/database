@@ -3,7 +3,7 @@ package raft
 import (
 	"context"
 
-	"github.com/amodkala/raft/proto"
+	"github.com/amodkala/db/pkg/proto"
 )
 
 func (cm *CM) sendHeartbeats() {

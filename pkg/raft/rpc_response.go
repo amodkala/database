@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/amodkala/db/raft/proto"
+	"github.com/amodkala/db/pkg/proto"
 )
 
 //
