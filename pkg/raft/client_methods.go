@@ -30,7 +30,7 @@ func (cm *CM) Start(addr string) {
 // and if it is the leader it replicates the command across
 // all peers
 //
-func (cm *CM) Replicate(entries []Entry) bool {
+func (cm *CM) Replicate(entries []proto.Entry) bool {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 

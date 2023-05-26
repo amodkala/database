@@ -8,12 +8,14 @@ import (
 )
 
 var (
-    engine = flag.String("engine", "e", "custom", "which engine to use for WAL and storage (default \"custom\")")
-    frequency = flag.Int("frequency", "f", 500, "how often Raft cluster leaders send heartbeats to followers in ms (default 500ms)")
+    engine string 
+    frequency int 
 )
 
 func main() {
+    flag.StringVar(&engine, "engine", "e", "rocksdb", "which engine to use for WAL and storage (default \"rocksdb\")")
+    flag.IntVar(&frequency, "frequency", "f", 500, "how often Raft cluster leaders send heartbeats to followers in ms (default 500ms)")
     flag.Parse()
 
-    fmt.Println("nothing here yet :)")
+    fmt.Println("%s, %d", engine, frequency)
 }

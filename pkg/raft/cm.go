@@ -13,8 +13,8 @@ import (
 // stored
 //
 type Entry struct {
-    Key   string
-    Value string
+    Key []byte
+    Value []byte
 }
 
 //
@@ -45,10 +45,10 @@ type CM struct {
 // New initializes a CM with some of its default values, the rest are
 // initialized when Start is called
 //
-func New() *CM {
+func New(commitChan chan proto.Entry) *CM {
     return &CM{
         mu:          sync.Mutex{},
-        CommitChan:  make(chan Entry),
+        CommitChan:  commitChan,
         log:         []*proto.Entry{},
         commitIndex: 0,
         lastApplied: 0,
