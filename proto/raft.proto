@@ -1,6 +1,6 @@
 syntax="proto3";
 package proto;
-option go_package = "github.com/amodkala/db/pkg/proto";
+option go_package = "github.com/amodkala/raft/proto";
 
 service Raft {
     rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse) {}

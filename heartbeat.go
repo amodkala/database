@@ -3,7 +3,7 @@ package raft
 import (
 	"context"
 
-	"github.com/amodkala/db/pkg/proto"
+	"github.com/amodkala/raft/proto"
 )
 
 func (cm *CM) sendHeartbeats() {
@@ -13,7 +13,7 @@ func (cm *CM) sendHeartbeats() {
 	cm.mu.Unlock()
 
 	for id, peer := range cm.peers {
-		go func(id string, peer proto.RaftClient) {
+		go func(id int, peer proto.RaftClient) {
 			cm.mu.Lock()
 			nextIndex := cm.nextIndex[id]
 			prevLogIndex := nextIndex - 1
@@ -22,7 +22,7 @@ func (cm *CM) sendHeartbeats() {
 
 			req := &proto.AppendEntriesRequest{
 				Term:         heartbeatTerm,
-				LeaderId:     cm.self,
+				LeaderId:     []byte(cm.self),
 				PrevLogIndex: prevLogIndex,
 				PrevLogTerm:  prevLogTerm,
 				Entries:      entries,
@@ -69,7 +69,7 @@ func (cm *CM) sendHeartbeats() {
 							cm.mu.Unlock()
 
 							for _, entry := range entries {
-								result := Entry{Key: entry.Key, Value: entry.Value}
+								result := proto.Entry{Key: entry.Key, Value: entry.Value}
 								cm.CommitChan <- result
 							}
 						}

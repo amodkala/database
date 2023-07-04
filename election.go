@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/amodkala/db/pkg/proto"
+	"github.com/amodkala/raft/proto"
 )
 
 func (cm *CM) startElectionTimer() {
@@ -60,7 +60,7 @@ func (cm *CM) startElection() {
 
 	for id, peer := range cm.peers {
 
-		go func(id string, peer proto.RaftClient) {
+		go func(id int, peer proto.RaftClient) {
 
 			var lastLogIndex, lastLogTerm int32
 
@@ -75,7 +75,7 @@ func (cm *CM) startElection() {
 
 			req := &proto.RequestVoteRequest{
 				Term:         electionTerm,
-				CandidateId:  cm.self,
+				CandidateId:  []byte(cm.self),
 				LastLogIndex: lastLogIndex,
 				LastLogTerm:  lastLogTerm,
 			}

@@ -4,14 +4,9 @@ import (
     "sync"
     "time"
 
-    "github.com/amodkala/db/pkg/proto"
+    "github.com/amodkala/raft/proto"
 )
 
-//
-// Entry is the struct that is returned to the client indicating that the
-// key/value pair has been replicated across a majority of peers and can be
-// stored
-//
 type Entry struct {
     Key []byte
     Value []byte
@@ -23,14 +18,15 @@ type Entry struct {
 // of the original paper.
 //
 type CM struct {
+    proto.UnimplementedRaftServer
     mu sync.Mutex
 
     self       string
     state      string
-    Leader     string
+    leader     string
     peers      []proto.RaftClient
     lastReset  time.Time
-    CommitChan chan Entry
+    CommitChan chan proto.Entry
 
     currentTerm int32
     votedFor    string
@@ -45,14 +41,20 @@ type CM struct {
 // New initializes a CM with some of its default values, the rest are
 // initialized when Start is called
 //
-func New(commitChan chan proto.Entry) *CM {
-    return &CM{
+func New(commitChan chan proto.Entry, opts ...CMOpts) *CM {
+    cm := &CM{
         mu:          sync.Mutex{},
         CommitChan:  commitChan,
         log:         []*proto.Entry{},
         commitIndex: 0,
         lastApplied: 0,
-        nextIndex:   []int32,
-        matchIndex:  []int32,
+        nextIndex:   []int32{},
+        matchIndex:  []int32{},
     }
+
+    for _, opt := range opts {
+        opt(cm)
+    }
+
+    return cm
 }
