@@ -41,8 +41,8 @@ func (cm *CM) startElectionTimer() {
 
 func newDuration() time.Duration {
 	rand.Seed(time.Now().UnixNano())
-	minDuration := 150
-    random := rand.Intn(150)
+	minDuration := 1500
+    random := rand.Intn(1500)
 
 	return time.Duration(minDuration + random) * time.Millisecond
 }
@@ -100,7 +100,6 @@ func (cm *CM) startElection() {
 
             if res.Term == electionTerm && res.VoteGranted {
                 votes += 1
-                log.Printf("term %d/%d -> %s has %d votes", electionTerm, cm.currentTerm, cm.self, votes)
             }
 
             cm.mu.Unlock()
@@ -109,12 +108,10 @@ func (cm *CM) startElection() {
 
     wg.Wait()
 
-    log.Printf("%s finished election", cm.self)
-
 	if votes > len(cm.peers)/2 {
 		cm.becomeLeader()
 		return
 	}
 
-	go cm.startElectionTimer()
+	cm.startElectionTimer()
 }

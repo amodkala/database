@@ -48,42 +48,42 @@ func (cm *CM) sendHeartbeats() {
                 return
             }
 
-			// if cm.state == "leader" && res.Term == heartbeatTerm {
-			// 	if res.Success {
-			// 		cm.nextIndex[id] += int32(len(entries))
-			// 		cm.matchIndex[id] = cm.nextIndex[id] - 1
+			if cm.state == "leader" && res.Term == heartbeatTerm {
+				if res.Success {
+					cm.nextIndex[id] += int32(len(entries))
+					cm.matchIndex[id] = cm.nextIndex[id] - 1
 
-			// 		savedCommitIndex := cm.commitIndex
-			// 		for i := cm.commitIndex + 1; i < int32(len(cm.log)); i++ {
-			// 			if cm.log[i].Term == cm.currentTerm {
-			// 				matchCount := 1
-			// 				for id := range cm.peers {
-			// 					if cm.matchIndex[id] >= i {
-			// 						matchCount++
-			// 					}
-			// 				}
-			// 				if matchCount > len(cm.peers)/2 {
-			// 					cm.commitIndex = i
-			// 				}
-			// 			}
-			// 		}
-			// 		if savedCommitIndex != cm.commitIndex {
-			// 			if cm.commitIndex > cm.lastApplied {
-			// 				// tell client these have been committed
-			// 				cm.mu.Lock()
-			// 				entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
-			// 				cm.lastApplied = cm.commitIndex
-			// 				cm.mu.Unlock()
+					savedCommitIndex := cm.commitIndex
+					for i := cm.commitIndex + 1; i < int32(len(cm.log)); i++ {
+						if cm.log[i].Term == cm.currentTerm {
+							matchCount := 1
+							for id := range cm.peers {
+								if cm.matchIndex[id] >= i {
+									matchCount++
+								}
+							}
+							if matchCount > len(cm.peers)/2 {
+								cm.commitIndex = i
+							}
+						}
+					}
+					if savedCommitIndex != cm.commitIndex {
+						if cm.commitIndex > cm.lastApplied {
+							// tell client these have been committed
+							cm.mu.Lock()
+							entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
+							cm.lastApplied = cm.commitIndex
+							cm.mu.Unlock()
 
-			// 				for _, entry := range entries {
-			// 					cm.commitChan <- entry.Message
-			// 				}
-			// 			}
-			// 		}
-			// 	} else {
-			// 		cm.nextIndex[id] -= 1
-			// 	}
-			// }
+							for _, entry := range entries {
+								cm.commitChan <- entry.Message
+							}
+						}
+					}
+				} else {
+					cm.nextIndex[id] -= 1
+				}
+			}
 		}(id, peer)
 	}
 }

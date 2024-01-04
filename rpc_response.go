@@ -2,7 +2,7 @@ package raft
 
 import (
 	"context"
-	"log"
+    "log"
 	"time"
 
 	"github.com/amodkala/raft/proto"
@@ -32,53 +32,52 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
         cm.becomeFollower(req.Term)
     }
 
-    // if req.PrevLogIndex == -1 ||
-    //     (req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term) {
-    //     res.Success = true
+    if req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term {
+        res.Success = true
 
-    //     logInsertIndex := req.PrevLogIndex + 1
-    //     newEntriesIndex := 0
+        logInsertIndex := req.PrevLogIndex + 1
+        newEntriesIndex := 0
 
-    //     for {
-    //         if logInsertIndex >= int32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
-    //             break
-    //         }
-    //         if cm.log[logInsertIndex].Term != req.Entries[newEntriesIndex].Term {
-    //             break
-    //         }
-    //         logInsertIndex++
-    //         newEntriesIndex++
-    //     }
+        for {
+            if logInsertIndex >= int32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
+                break
+            }
+            if cm.log[logInsertIndex].Term != req.Entries[newEntriesIndex].Term {
+                break
+            }
+            logInsertIndex++
+            newEntriesIndex++
+        }
 
-    //     if newEntriesIndex < len(req.Entries) {
-    //         log.Printf("%s added entries to log %v\n", cm.self, req.Entries)
+        if newEntriesIndex < len(req.Entries) {
+            log.Printf("%s added entries to log %v\n", cm.self, req.Entries)
 
-    //         newEntries := []Entry{}
-    //         for _, entry := range req.Entries[newEntriesIndex:] {
-    //             newEntries = append(newEntries, Entry{
-    //                 Term: entry.Term,
-    //                 Message: entry.Message,
-    //             })
-    //         }
-    //         cm.log = append(cm.log[:logInsertIndex], newEntries...)
-    //     }
+            newEntries := []Entry{}
+            for _, entry := range req.Entries[newEntriesIndex:] {
+                newEntries = append(newEntries, Entry{
+                    Term: entry.Term,
+                    Message: entry.Message,
+                })
+            }
+            cm.log = append(cm.log[:logInsertIndex], newEntries...)
+        }
 
-    //     if req.LeaderCommit > cm.commitIndex {
-    //         cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
-    //         if cm.commitIndex > cm.lastApplied {
-    //             // tell client these have been committed
-    //             cm.mu.Lock()
-    //             entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
-    //             cm.lastApplied = cm.commitIndex
-    //             cm.mu.Unlock()
+        if req.LeaderCommit > cm.commitIndex {
+            cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
+            if cm.commitIndex > cm.lastApplied {
+                // tell client these have been committed
+                cm.mu.Lock()
+                entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
+                cm.lastApplied = cm.commitIndex
+                cm.mu.Unlock()
 
-    //             for _, entry := range entries {
-    //                 cm.commitChan <- entry.Message
-    //             }
-    //         }
-    //     }
+                for _, entry := range entries {
+                    cm.commitChan <- entry.Message
+                }
+            }
+        }
 
-    // }
+    }
 
 	return res, nil
 }
@@ -118,8 +117,6 @@ func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*
 		cm.votedFor = req.CandidateId
         cm.currentTerm = req.Term
         cm.mu.Unlock()
-
-        log.Printf("term %d/%d -> %s voted for %s", req.Term, cm.currentTerm, cm.self, req.CandidateId)
 
         res = &proto.RequestVoteResponse{
             Term: cm.currentTerm,
