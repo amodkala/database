@@ -10,6 +10,7 @@
       in {
           devShells.default = pkgs.mkShell {
               buildInputs = with pkgs; [
+                go
                 protobuf
                 protoc-gen-go
                 protoc-gen-go-grpc

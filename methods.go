@@ -9,24 +9,26 @@ import (
 	"google.golang.org/grpc"
 )
 
-func (cm *CM) Start(addr string) error {
-	cm.mu.Lock()
-	cm.self = addr
-    fmt.Println(cm.self, len(cm.peers))
-	cm.mu.Unlock()
-
+func (cm *CM) Start(opts ...CMOpts) error {
     lis, err := net.Listen("tcp", cm.self)
 	if err != nil {
-		log.Fatalf("failed to listen -> %v", err)
+		return fmt.Errorf("failed to listen -> %v", err)
 	}
 	server := grpc.NewServer()
 	proto.RegisterRaftServer(server, cm)
 
-	log.Printf("starting consensus module at %s\n", addr)
-	cm.becomeFollower(0)
-	server.Serve(lis)
+    for _, opt := range opts {
+        opt(cm)
+    }
 
-    return nil
+    startTerm := int32(0)
+
+    cm.log = append(cm.log, Entry{
+        Term: startTerm,
+        Message: []byte{},
+    })
+	cm.becomeFollower(startTerm)
+    return fmt.Errorf("Consensus Module encountered error -> %v", server.Serve(lis))
 }
 
 //
@@ -34,8 +36,9 @@ func (cm *CM) Start(addr string) error {
 // and if it is the leader it replicates the command across
 // all peers
 //
-func (cm *CM) Replicate(entries ...Entry) (string, error) {
+func (cm *CM) Replicate(entries ...[]byte) (string, error) {
 	cm.mu.Lock()
+    defer cm.mu.Unlock()
 
     if cm.state != "leader" {
         return cm.leader, fmt.Errorf("Node is not leader")
@@ -43,24 +46,37 @@ func (cm *CM) Replicate(entries ...Entry) (string, error) {
 
     for _, entry := range entries {
         log.Printf("%s adding entry %v to log\n", cm.self, entry)
-        cm.log = append(cm.log, &proto.Entry{
-            Term:  cm.currentTerm,
-            Key:   entry.Key,
-            Value: entry.Value,
+        cm.log = append(cm.log, Entry{
+            Term: cm.currentTerm,
+            Message: entry,
         })
     }
-
-	cm.mu.Unlock()
-
-    // TODO entries ready to be committed will appear here via cm.CommitChan
 
     return "", nil
 }
 
 func (cm *CM) addPeer(addr string) error {
-    conn, err := grpc.Dial(addr)
+
+    retryPolicy := `{
+        "methodConfig": [{
+            "name": [{"service": "proto.Raft"}],
+            "retryPolicy": {
+                "MaxAttempts": 10,
+                "InitialBackoff": "0.5s",
+                "MaxBackoff": "5s",
+                "BackoffMultiplier": 2,
+                "RetryableStatusCodes": ["UNAVAILABLE"]
+            }
+        }]
+    }`
+
+    conn, err := grpc.Dial(
+        addr,
+        grpc.WithInsecure(),
+        grpc.WithDefaultServiceConfig(retryPolicy),
+    )
     if err != nil {
-        return fmt.Errorf("failed to connect to gRPC channel: %w", err)
+        return fmt.Errorf("failed to connect to peer %s: %w", addr, err)
     }
     client := proto.NewRaftClient(conn)
 
@@ -70,7 +86,6 @@ func (cm *CM) addPeer(addr string) error {
     cm.peers = append(cm.peers, client)
     cm.nextIndex = append(cm.nextIndex, cm.lastApplied + 1)
     cm.matchIndex = append(cm.matchIndex, 0)
-	log.Printf("%s added peer %s\n", cm.self, addr)
 
     return nil
 }

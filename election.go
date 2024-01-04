@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"math/rand"
+    "sync"
 	"time"
 
 	"github.com/amodkala/raft/proto"
@@ -12,6 +13,7 @@ import (
 func (cm *CM) startElectionTimer() {
 	cm.mu.Lock()
 	termStarted := cm.currentTerm
+    cm.lastReset = time.Now()
 	cm.mu.Unlock()
 
 	timerLength := newDuration()
@@ -23,12 +25,7 @@ func (cm *CM) startElectionTimer() {
 		<-ticker.C
 
 		cm.mu.Lock()
-		if cm.state == "leader" {
-			cm.mu.Unlock()
-			return
-		}
-
-		if cm.currentTerm != termStarted {
+		if cm.state == "leader" || cm.currentTerm != termStarted {
 			cm.mu.Unlock()
 			return
 		}
@@ -44,13 +41,15 @@ func (cm *CM) startElectionTimer() {
 
 func newDuration() time.Duration {
 	rand.Seed(time.Now().UnixNano())
-	minDuration := 500
+	minDuration := 150
+    random := rand.Intn(150)
 
-	return time.Duration(minDuration) * time.Millisecond
+	return time.Duration(minDuration + random) * time.Millisecond
 }
 
 func (cm *CM) startElection() {
 	cm.mu.Lock()
+    // on election start, the candidate increments its current term and votes for itself
 	electionTerm := cm.currentTerm
 	cm.lastReset = time.Now()
 	cm.votedFor = cm.self
@@ -58,52 +57,59 @@ func (cm *CM) startElection() {
 
 	votes := 1
 
+    var wg sync.WaitGroup
+
 	for id, peer := range cm.peers {
 
+        wg.Add(1)
+
 		go func(id int, peer proto.RaftClient) {
+            defer wg.Done()
 
 			var lastLogIndex, lastLogTerm int32
 
 			cm.mu.Lock()
-			if len(cm.log) > 0 {
-				lastLogIndex = int32(len(cm.log) - 1)
-				lastLogTerm = cm.log[lastLogIndex].Term
-			} else {
-				lastLogIndex = -1
-				lastLogTerm = -1
-			}
+            lastLogIndex = int32(len(cm.log) - 1)
+            lastLogTerm = cm.log[lastLogIndex].Term
+			cm.mu.Unlock()
 
 			req := &proto.RequestVoteRequest{
 				Term:         electionTerm,
-				CandidateId:  []byte(cm.self),
+				CandidateId:  cm.self,
 				LastLogIndex: lastLogIndex,
 				LastLogTerm:  lastLogTerm,
 			}
-			cm.mu.Unlock()
 
-			if res, err := peer.RequestVote(context.Background(), req); err == nil {
-				cm.mu.Lock()
-				defer cm.mu.Unlock()
+			res, err := peer.RequestVote(context.Background(), req)
+            if err != nil {
+                log.Printf("%v", err)
+            }
 
-				if cm.state != "candidate" {
-					return
-				}
+            cm.mu.Lock()
 
-				if res.Term > electionTerm {
-					cm.becomeFollower(res.Term)
-					return
-				}
+            if cm.state != "candidate" {
+                cm.mu.Unlock()
+                return
+            }
 
-				if res.Term == electionTerm {
-					if res.VoteGranted {
-						votes += 1
-						log.Printf("%s got vote from %s\n", cm.self, id)
-					}
+            if res.Term > electionTerm {
+                cm.becomeFollower(res.Term)
+                cm.mu.Unlock()
+                return
+            }
 
-				}
-			}
+            if res.Term == electionTerm && res.VoteGranted {
+                votes += 1
+                log.Printf("term %d/%d -> %s has %d votes", electionTerm, cm.currentTerm, cm.self, votes)
+            }
+
+            cm.mu.Unlock()
 		}(id, peer)
 	}
+
+    wg.Wait()
+
+    log.Printf("%s finished election", cm.self)
 
 	if votes > len(cm.peers)/2 {
 		cm.becomeLeader()

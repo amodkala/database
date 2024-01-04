@@ -1,12 +1,15 @@
 package raft
 
-type CMOpts func(*CM) *CM
+import "fmt"
 
-func WithPeers(peers []string) CMOpts {
-    return func(cm *CM) *CM {
+type CMOpts func(*CM)
+
+func WithLocalPeers(peers []string) CMOpts {
+    return func(cm *CM) {
         for _, peer := range peers {
-            cm.addPeer(peer)
+            if err := cm.addPeer(peer); err != nil {
+                fmt.Println(err)
+            }
         }
-        return cm
     }
 }

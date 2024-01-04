@@ -13,7 +13,8 @@ import (
 //
 func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest) (*proto.AppendEntriesResponse, error) {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
+    cm.lastReset = time.Now()
+    cm.mu.Unlock()
 
 	res := &proto.AppendEntriesResponse{
 		Term:    cm.currentTerm,
@@ -24,54 +25,60 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 		cm.becomeFollower(req.Term)
 	}
 
-    if cm.leader != string(req.LeaderId) {
-        cm.leader = string(req.LeaderId)
+    if cm.leader != req.LeaderId {
+        cm.leader = req.LeaderId
     }
     if cm.state != "follower" {
         cm.becomeFollower(req.Term)
     }
-    cm.lastReset = time.Now()
 
-    if req.PrevLogIndex == -1 ||
-        (req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term) {
-        res.Success = true
+    // if req.PrevLogIndex == -1 ||
+    //     (req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term) {
+    //     res.Success = true
 
-        logInsertIndex := req.PrevLogIndex + 1
-        newEntriesIndex := 0
+    //     logInsertIndex := req.PrevLogIndex + 1
+    //     newEntriesIndex := 0
 
-        for {
-            if logInsertIndex >= int32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
-                break
-            }
-            if cm.log[logInsertIndex].Term != req.Entries[newEntriesIndex].Term {
-                break
-            }
-            logInsertIndex++
-            newEntriesIndex++
-        }
+    //     for {
+    //         if logInsertIndex >= int32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
+    //             break
+    //         }
+    //         if cm.log[logInsertIndex].Term != req.Entries[newEntriesIndex].Term {
+    //             break
+    //         }
+    //         logInsertIndex++
+    //         newEntriesIndex++
+    //     }
 
-        if newEntriesIndex < len(req.Entries) {
-            log.Printf("%s added entries to log %v\n", cm.self, req.Entries)
-            cm.log = append(cm.log[:logInsertIndex], req.Entries[newEntriesIndex:]...)
-        }
+    //     if newEntriesIndex < len(req.Entries) {
+    //         log.Printf("%s added entries to log %v\n", cm.self, req.Entries)
 
-        if req.LeaderCommit > cm.commitIndex {
-            cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
-            if cm.commitIndex > cm.lastApplied {
-                // tell client these have been committed
-                cm.mu.Lock()
-                entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
-                cm.lastApplied = cm.commitIndex
-                cm.mu.Unlock()
+    //         newEntries := []Entry{}
+    //         for _, entry := range req.Entries[newEntriesIndex:] {
+    //             newEntries = append(newEntries, Entry{
+    //                 Term: entry.Term,
+    //                 Message: entry.Message,
+    //             })
+    //         }
+    //         cm.log = append(cm.log[:logInsertIndex], newEntries...)
+    //     }
 
-                for _, entry := range entries {
-                    result := proto.Entry{Key: entry.Key, Value: entry.Value}
-                    cm.CommitChan <- result
-                }
-            }
-        }
+    //     if req.LeaderCommit > cm.commitIndex {
+    //         cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
+    //         if cm.commitIndex > cm.lastApplied {
+    //             // tell client these have been committed
+    //             cm.mu.Lock()
+    //             entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
+    //             cm.lastApplied = cm.commitIndex
+    //             cm.mu.Unlock()
 
-    }
+    //             for _, entry := range entries {
+    //                 cm.commitChan <- entry.Message
+    //             }
+    //         }
+    //     }
+
+    // }
 
 	return res, nil
 }
@@ -88,36 +95,42 @@ func min(a, b int32) int32 {
 //
 func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*proto.RequestVoteResponse, error) {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
+    lastLogIndex := int32(len(cm.log) - 1)
+    lastLogTerm := cm.log[lastLogIndex].Term
+    cm.lastReset = time.Now()
+	cm.mu.Unlock()
 
-	var lastLogIndex, lastLogTerm int32
+    var res *proto.RequestVoteResponse
 
-	if len(cm.log) > 0 {
-		lastLogIndex = int32(len(cm.log) - 1)
-		lastLogTerm = cm.log[lastLogIndex].Term
-	} else {
-		lastLogIndex = -1
-		lastLogTerm = -1
-	}
-
-	res := &proto.RequestVoteResponse{
-		Term: cm.currentTerm,
-	}
-
+    // candidate is a term ahead, become follower automatically
 	if req.Term > cm.currentTerm {
 		cm.becomeFollower(req.Term)
 	}
 
-	if req.Term == cm.currentTerm &&
-		(cm.votedFor == "" || cm.votedFor == string(req.CandidateId)) &&
+    // performs the following checks for whether to grant the candidate a vote:
+    // 1. 
+	if (req.Term >= cm.currentTerm) &&
+        (cm.votedFor == "" || cm.votedFor == req.CandidateId) &&
 		(req.LastLogTerm > lastLogTerm ||
 			(req.LastLogTerm == lastLogTerm && req.LastLogIndex >= lastLogIndex)) {
-		res.VoteGranted = true
-		cm.votedFor = string(req.CandidateId)
-		cm.lastReset = time.Now()
+
+        cm.mu.Lock()
+		cm.votedFor = req.CandidateId
+        cm.currentTerm = req.Term
+        cm.mu.Unlock()
+
+        log.Printf("term %d/%d -> %s voted for %s", req.Term, cm.currentTerm, cm.self, req.CandidateId)
+
+        res = &proto.RequestVoteResponse{
+            Term: cm.currentTerm,
+            VoteGranted: true,
+        }
 	} else {
-		res.VoteGranted = false
-	}
+        res = &proto.RequestVoteResponse{
+            Term: cm.currentTerm,
+            VoteGranted: false,
+        }
+    }
 
 	return res, nil
 }
