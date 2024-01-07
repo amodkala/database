@@ -31,6 +31,10 @@ func (cm *CM) Start(opts ...CMOpts) error {
     return fmt.Errorf("Consensus Module encountered error -> %v", server.Serve(lis))
 }
 
+func (cm *CM) isLeader() bool {
+    return cm.state == "leader" && cm.self == cm.leader
+}
+
 //
 // Replicate sends commands to the local consensus model,
 // and if it is the leader it replicates the command across
@@ -40,7 +44,7 @@ func (cm *CM) Replicate(entries ...[]byte) (string, error) {
 	cm.mu.Lock()
     defer cm.mu.Unlock()
 
-    if cm.state != "leader" {
+    if !cm.isLeader() {
         return cm.leader, fmt.Errorf("Node is not leader")
     }
 

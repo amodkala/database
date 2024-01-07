@@ -18,7 +18,6 @@ func main() {
     time.Sleep(4 * time.Second)
     cm.Replicate([]byte("hello"), []byte("world"))
 
-
     for {
         entry := <-commitChan
         log.Printf("client of %s got entry %s", addr, string(entry))
