@@ -76,7 +76,9 @@ func (cm *CM) sendHeartbeats() {
 							cm.mu.Unlock()
 
 							for _, entry := range entries {
-								cm.commitChan <- entry.Message
+                                if len(entry.Message) > 0 {
+                                    cm.commitChan <- entry.Message
+                                }
 							}
 						}
 					}

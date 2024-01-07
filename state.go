@@ -34,6 +34,10 @@ func (cm *CM) becomeLeader() {
 	cm.state = "leader"
 	cm.leader = cm.self
 	log.Printf("***** term %d -> %s became leader *****\n", cm.currentTerm, cm.self)
+    cm.log = append(cm.log, Entry{
+        Term: cm.currentTerm,
+        Message: []byte{},
+    })
 	cm.mu.Unlock()
 
     ticker := time.NewTicker(time.Duration(50) * time.Millisecond)
