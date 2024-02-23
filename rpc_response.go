@@ -16,20 +16,23 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
     cm.lastReset = time.Now()
     cm.mu.Unlock()
 
+    // start := time.Now()
+
 	res := &proto.AppendEntriesResponse{
 		Term:    cm.currentTerm,
 		Success: false,
 	}
 
-	if req.Term > cm.currentTerm {
+    if req.Term < cm.currentTerm {
+        return res, nil
+    }
+
+	if req.Term > cm.currentTerm || cm.state != "follower"{
 		cm.becomeFollower(req.Term)
 	}
 
     if cm.leader != req.LeaderId {
         cm.leader = req.LeaderId
-    }
-    if cm.state != "follower" {
-        cm.becomeFollower(req.Term)
     }
 
     if req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term {
@@ -50,7 +53,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
         }
 
         if newEntriesIndex < len(req.Entries) {
-            log.Printf("%s added entries to log %v\n", cm.self, req.Entries)
+            log.Printf("term %d -> %s added entries to log %v\n", cm.currentTerm, cm.self, req.Entries)
 
             newEntries := []Entry{}
             for _, entry := range req.Entries[newEntriesIndex:] {
@@ -81,6 +84,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 
     }
 
+    // log.Printf(`term %d -> %s responded to heartbeat in %d ms`, cm.currentTerm, cm.self, time.Since(start).Milliseconds())
 	return res, nil
 }
 
@@ -100,6 +104,8 @@ func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*
     lastLogTerm := cm.log[lastLogIndex].Term
     cm.lastReset = time.Now()
 	cm.mu.Unlock()
+
+    start := time.Now()
 
     var res *proto.RequestVoteResponse
 
@@ -131,5 +137,6 @@ func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*
         }
     }
 
+    log.Printf(`term %d -> %s responded to vote request in %d ms`, cm.currentTerm, cm.self, time.Since(start).Milliseconds())
 	return res, nil
 }

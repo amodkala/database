@@ -38,6 +38,9 @@ func (cm *CM) becomeLeader() {
         Term: cm.currentTerm,
         Message: []byte{},
     })
+    for i := range cm.nextIndex {
+        cm.nextIndex[i] = cm.lastApplied + 1
+    }
 	cm.mu.Unlock()
 
     ticker := time.NewTicker(time.Duration(50) * time.Millisecond)

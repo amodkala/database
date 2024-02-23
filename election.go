@@ -57,9 +57,9 @@ func (cm *CM) startElection() {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel() // Ensure cancellation at the end of the function
 
-	for _, peer := range cm.peers {
+	for id, peer := range cm.peers {
 
-		go func(ctx context.Context, peer proto.RaftClient, voteChan chan bool) {
+		go func(ctx context.Context, id int, peer proto.RaftClient, voteChan chan bool) {
             defer func() {
                 // Close channel only when all goroutines are done
                 if r := recover(); r != nil && r == "send on closed channel" {
@@ -67,11 +67,9 @@ func (cm *CM) startElection() {
                 }
             }()
 
-			var lastLogIndex, lastLogTerm int32
-
 			cm.mu.Lock()
-            lastLogIndex = int32(len(cm.log) - 1)
-            lastLogTerm = cm.log[lastLogIndex].Term
+            lastLogIndex := int32(len(cm.log) - 1)
+            lastLogTerm := cm.log[lastLogIndex].Term
 			cm.mu.Unlock()
 
 			req := &proto.RequestVoteRequest{
@@ -81,7 +79,10 @@ func (cm *CM) startElection() {
 				LastLogTerm:  lastLogTerm,
 			}
 
+            start := time.Now()
 			res, err := peer.RequestVote(ctx, req)
+            log.Printf(`term %d -> candidate %s got vote request response from peer %d in %d ms`,
+            cm.currentTerm, cm.self, id, time.Since(start).Milliseconds())
             if err != nil {
                 log.Printf("%v", err)
                 voteChan <- false
@@ -106,7 +107,7 @@ func (cm *CM) startElection() {
                 log.Printf("Context cancelled, stopping vote request")
                 return
             }
-		}(ctx, peer, voteChan)
+		}(ctx, id, peer, voteChan)
 	}
 
     // Collect responses until the majority is reached or all votes are counted
@@ -120,9 +121,6 @@ func (cm *CM) startElection() {
             }
         }
     }
-
-    // Clean up
-    close(voteChan)
 
     if cm.state == "candidate" {
         go cm.startElectionTimer()

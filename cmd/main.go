@@ -15,7 +15,9 @@ func main() {
 
     go cm.Start(raft.WithLocalPeers(peers))
 
-    time.Sleep(4 * time.Second)
+    // <-commitChan
+
+    time.Sleep(2 * time.Second)
     cm.Replicate([]byte("hello"), []byte("world"))
 
     for {

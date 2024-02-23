@@ -12,12 +12,6 @@ type Entry struct {
     Message []byte
 }
 
-type Peer struct {
-    clientConn proto.RaftClient
-    nextIndex int32
-    matchIndex int32
-}
-
 // CM (Consensus Module) is a struct that implements the Raft consensus
 // algorithm (https://raft.github.io/raft.pdf) up to and including Section 5
 // of the original paper.

@@ -88,7 +88,7 @@ func (cm *CM) addPeer(addr string) error {
     defer cm.mu.Unlock()
 
     cm.peers = append(cm.peers, client)
-    cm.nextIndex = append(cm.nextIndex, cm.lastApplied + 1)
+    cm.nextIndex = append(cm.nextIndex, 0) // temporary, changed on election
     cm.matchIndex = append(cm.matchIndex, 0)
 
     return nil
