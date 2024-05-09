@@ -5,7 +5,7 @@ import (
     "os"
     "time"
 
-    "github.com/amodkala/raft"
+    "github.com/amodkala/db/raft"
 )
 
 func main() {

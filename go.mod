@@ -1,4 +1,4 @@
-module github.com/amodkala/raft
+module github.com/amodkala/db
 
 go 1.19
 
