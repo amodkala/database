@@ -31,6 +31,9 @@ func (cm *CM) Start(opts ...CMOpts) error {
     return fmt.Errorf("Consensus Module encountered error -> %v", server.Serve(lis))
 }
 
+// Helper function for client to ascertain whether its consensus module is 
+// cluster leader
+// This should be obsoleted by implementation of redirect
 func (cm *CM) isLeader() bool {
     return cm.state == "leader" && cm.self == cm.leader
 }
@@ -65,10 +68,10 @@ func (cm *CM) addPeer(addr string) error {
         "methodConfig": [{
             "name": [{"service": "proto.Raft"}],
             "retryPolicy": {
-                "MaxAttempts": 10,
-                "InitialBackoff": "0.5s",
-                "MaxBackoff": "5s",
-                "BackoffMultiplier": 2,
+                "MaxAttempts": 5,
+                "InitialBackoff": "0.1s",
+                "MaxBackoff": "0.1s",
+                "BackoffMultiplier": 1,
                 "RetryableStatusCodes": ["UNAVAILABLE"]
             }
         }]
@@ -85,11 +88,10 @@ func (cm *CM) addPeer(addr string) error {
     client := proto.NewRaftClient(conn)
 
     cm.mu.Lock()
-    defer cm.mu.Unlock()
-
     cm.peers = append(cm.peers, client)
     cm.nextIndex = append(cm.nextIndex, 0) // temporary, changed on election
     cm.matchIndex = append(cm.matchIndex, 0)
+    cm.mu.Unlock()
 
     return nil
 }

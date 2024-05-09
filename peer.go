@@ -1,5 +1,11 @@
 package raft
 
+// Convenience struct for cluster peers that should allow for cleaner code
+// (cm.nextIndex[peerID] => peer.nextIndex) and more verbose logging (current 
+// impl doesn't store peer ids, just indices)
+// Should also ease development of cluster membership changes whenever I add 
+// that
+
 import (
     "context"
 

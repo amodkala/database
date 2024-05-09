@@ -102,10 +102,10 @@ func (cm *CM) startElection() {
             }
 
             select {
-            case voteChan <- res.Term == electionTerm && res.VoteGranted:
             case <-ctx.Done():
                 log.Printf("Context cancelled, stopping vote request")
                 return
+            case voteChan <- res.Term == electionTerm && res.VoteGranted:
             }
 		}(ctx, id, peer, voteChan)
 	}
