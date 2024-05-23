@@ -5,7 +5,7 @@ import (
     "log"
     // "time"
 
-	"github.com/amodkala/db/proto"
+	"github.com/amodkala/raft/proto"
 )
 
 func (cm *CM) sendHeartbeats() {

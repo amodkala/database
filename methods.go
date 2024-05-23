@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/amodkala/db/proto"
+	"github.com/amodkala/raft/proto"
 	"google.golang.org/grpc"
 )
 

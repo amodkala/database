@@ -1,4 +1,5 @@
-To run the local demo, run the demo script from the base directory:
-```bash
-./demo.sh
+Package providing a Raft consensus module
+
+```go
+import "github.com/amodkala/raft"
 ```

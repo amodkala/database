@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/amodkala/db/proto"
+	"github.com/amodkala/raft/proto"
 )
 
 func (cm *CM) startElectionTimer() {
