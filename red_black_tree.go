@@ -25,14 +25,13 @@ type RBTreeNode struct {
     parent *RBTreeNode
 }
 
-func Search(tree RBTree, key int) (data []byte, ok bool)
-func Insert(tree RBTree, key int, data []byte) error
-func Delete(tree RBTree, key int) error
+func (tree RBTree) Search(key int) (data []byte, ok bool)
 
-func leftRotate(tree RBTree, node *RBTreeNode) {
-    tree.mu.Lock()
-    defer tree.mu.Unlock()
+func (tree RBTree) Insert(key int, data []byte) error { return nil }
 
+func (tree RBTree) Delete(key int) error
+
+func (tree RBTree) leftRotate(node *RBTreeNode) {
     y := node.right
     node.right = y.left
     if y.left != nil {
@@ -51,7 +50,21 @@ func leftRotate(tree RBTree, node *RBTreeNode) {
     node.parent = y
 }
 
-func rightRotate(tree RBTree, node *RBTreeNode) {
-    tree.mu.Lock()
-    defer tree.mu.Unlock()
+func (tree RBTree) rightRotate(node *RBTreeNode) {
+    x := node.left
+    node.left = x.right
+    if x.right != nil {
+        x.right.parent = node
+    }
+    x.parent = node.parent
+    switch node {
+    case tree.root:
+        tree.root = x
+    case node.parent.left:
+        node.parent.left = x
+    case node.parent.right:
+        node.parent.right = x
+    }
+    x.right = node
+    node.parent = x
 }
