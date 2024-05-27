@@ -1,4 +1,4 @@
-package lsm
+package rbtree
 
 import (
     "sync"
