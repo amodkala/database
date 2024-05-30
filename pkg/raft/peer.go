@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 
-    "github.com/amodkala/raft/proto"
+    "github.com/amodkala/database/pkg/proto"
 )
 
 type Peer struct {

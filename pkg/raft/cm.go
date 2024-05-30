@@ -4,7 +4,7 @@ import (
     "sync"
     "time"
 
-    "github.com/amodkala/raft/proto"
+    "github.com/amodkala/database/pkg/proto"
 )
 
 type Entry struct {
