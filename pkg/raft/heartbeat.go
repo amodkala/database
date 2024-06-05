@@ -4,8 +4,6 @@ import (
 	"context"
     "log"
     // "time"
-
-	"github.com/amodkala/database/pkg/proto"
 )
 
 func (cm *CM) sendHeartbeats() {
@@ -15,14 +13,14 @@ func (cm *CM) sendHeartbeats() {
 	cm.mu.Unlock()
 
 	for id, peer := range cm.peers {
-		go func(id int, peer proto.RaftClient) {
-			entries := []*proto.Entry{}
+		go func(id int, peer RaftClient) {
+			entries := []*Entry{}
 			cm.mu.Lock()
 			nextIndex := cm.nextIndex[id]
 			prevLogIndex := nextIndex - 1
 			prevLogTerm := cm.log[prevLogIndex].Term
             for _, entry := range cm.log[nextIndex:] {
-                entries = append(entries, &proto.Entry{
+                entries = append(entries, &Entry{
                     Term: entry.Term,
                     Message: entry.Message,
                 })
@@ -33,7 +31,7 @@ func (cm *CM) sendHeartbeats() {
             // `, heartbeatTerm, cm.self, id, nextIndex, len(cm.log) - 1, prevLogIndex, entries)
             cm.mu.Unlock()
 
-			req := &proto.AppendEntriesRequest{
+			req := &AppendEntriesRequest{
 				Term:         heartbeatTerm,
 				LeaderId:     cm.self,
 				PrevLogIndex: prevLogIndex,

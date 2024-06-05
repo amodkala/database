@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func (cm *CM) becomeFollower(term int32) {
+func (cm *CM) becomeFollower(term uint32) {
 	cm.mu.Lock()
 	cm.state = "follower"
 	cm.currentTerm = term

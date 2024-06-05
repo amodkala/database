@@ -1,6 +1,8 @@
 syntax="proto3";
 package proto;
-option go_package = "github.com/amodkala/database/pkg/proto";
+option go_package = "github.com/amodkala/database/pkg/raft";
+
+import "google/protobuf/timestamp.proto";
 
 service Raft {
     rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse) {}
@@ -8,32 +10,36 @@ service Raft {
 }
 
 message AppendEntriesRequest {
-    int32 term = 1;
+    uint32 term = 1;
     string leader_id = 2;
-    int32 prev_log_index = 3;
-    int32 prev_log_term = 4;
+    uint32 prev_log_index = 3;
+    uint32 prev_log_term = 4;
     repeated Entry entries = 5;
-    int32 leader_commit = 6;
+    uint32 leader_commit = 6;
 }
 
 message Entry {
-    int32 term = 1;
-    bytes message = 2; 
+    uint32 term = 1;
+    bytes tx_id = 2;
+    uint32 key = 3;
+    string value = 4;
+
+    google.protobuf.Timestamp create_time = 5;
 }
 
 message AppendEntriesResponse{
-    int32 term = 1;
+    uint32 term = 1;
     bool success = 2;
 }
 
 message RequestVoteRequest {
-    int32 term = 1;
+    uint32 term = 1;
     string candidate_id = 2;
-    int32 last_log_index = 3;
-    int32 last_log_term = 4;
+    uint32 last_log_index = 3;
+    uint32 last_log_term = 4;
 }
 
 message RequestVoteResponse {
-    int32 term = 1;
+    uint32 term = 1;
     bool vote_granted = 2;
 }

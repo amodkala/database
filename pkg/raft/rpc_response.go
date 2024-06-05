@@ -4,8 +4,6 @@ import (
 	"context"
     "log"
 	"time"
-
-	"github.com/amodkala/database/pkg/proto"
 )
 
 //
@@ -18,7 +16,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 
     // start := time.Now()
 
-	res := &proto.AppendEntriesResponse{
+	res := &AppendEntriesResponse{
 		Term:    cm.currentTerm,
 		Success: false,
 	}
@@ -66,7 +64,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
         }
 
         if req.LeaderCommit > cm.commitIndex {
-            cm.commitIndex = min(req.LeaderCommit, int32(len(cm.log)-1))
+            cm.commitIndex = min(req.LeaderCommit, uint32(len(cm.log)-1))
             if cm.commitIndex > cm.lastApplied {
                 // tell client these have been committed
                 cm.mu.Lock()
@@ -88,7 +86,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
 	return res, nil
 }
 
-func min(a, b int32) int32 {
+func min(a, b uint32) uint32 {
 	if a > b {
 		return b
 	}
@@ -107,7 +105,7 @@ func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*
 
     start := time.Now()
 
-    var res *proto.RequestVoteResponse
+    var res *RequestVoteResponse
 
     // candidate is a term ahead, become follower automatically
 	if req.Term > cm.currentTerm {
@@ -126,12 +124,12 @@ func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*
         cm.currentTerm = req.Term
         cm.mu.Unlock()
 
-        res = &proto.RequestVoteResponse{
+        res = &RequestVoteResponse{
             Term: cm.currentTerm,
             VoteGranted: true,
         }
 	} else {
-        res = &proto.RequestVoteResponse{
+        res = &RequestVoteResponse{
             Term: cm.currentTerm,
             VoteGranted: false,
         }
