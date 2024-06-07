@@ -3,7 +3,8 @@ package raft
 import (
 	"context"
     "log"
-    // "time"
+
+    "github.com/amodkala/database/pkg/common"
 )
 
 func (cm *CM) sendHeartbeats() {
@@ -14,16 +15,13 @@ func (cm *CM) sendHeartbeats() {
 
 	for id, peer := range cm.peers {
 		go func(id int, peer RaftClient) {
-			entries := []*Entry{}
+			entries := []*common.Entry{}
 			cm.mu.Lock()
 			nextIndex := cm.nextIndex[id]
 			prevLogIndex := nextIndex - 1
-			prevLogTerm := cm.log[prevLogIndex].Term
+			prevLogTerm := cm.log[prevLogIndex].RaftTerm
             for _, entry := range cm.log[nextIndex:] {
-                entries = append(entries, &Entry{
-                    Term: entry.Term,
-                    Message: entry.Message,
-                })
+                entries = append(entries, &entry)
             }
 
             // log.Printf(`term %d -> leader %s sending heartbeats with params:
@@ -57,15 +55,15 @@ func (cm *CM) sendHeartbeats() {
             cm.mu.Lock()
 			if cm.state == "leader" && res.Term == heartbeatTerm && nextIndex == cm.nextIndex[id] {
 				if res.Success {
-					cm.nextIndex[id] += int32(len(entries))
+					cm.nextIndex[id] += uint32(len(entries))
 					cm.matchIndex[id] = cm.nextIndex[id] - 1
 
                     // log.Printf(`term %d -> leader %s updated peer %d
                     //     nextIndex: %d`, cm.currentTerm, cm.self, id, cm.nextIndex[id])
 
 					savedCommitIndex := cm.commitIndex
-					for i := cm.commitIndex + 1; i < int32(len(cm.log)); i++ {
-						if cm.log[i].Term == cm.currentTerm {
+					for i := cm.commitIndex + 1; i < uint32(len(cm.log)); i++ {
+						if cm.log[i].RaftTerm == cm.currentTerm {
 							matchCount := 1
 							for id := range cm.peers {
 								if cm.matchIndex[id] >= i {
@@ -84,9 +82,9 @@ func (cm *CM) sendHeartbeats() {
 							cm.lastApplied = cm.commitIndex
 
 							for _, entry := range entries {
-                                if len(entry.Message) > 0 {
-                                    cm.commitChan <- entry.Message
-                                }
+                                // perform checks for whether each entry can be
+                                // committed
+                                cm.commitChan <- entry
 							}
 						}
 					}

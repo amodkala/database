@@ -2,10 +2,11 @@ package raft
 
 import (
     "fmt"
-	"log"
 	"net"
 
 	"google.golang.org/grpc"
+
+    "github.com/amodkala/database/pkg/common"
 )
 
 func (cm *CM) Start(opts ...CMOpts) error {
@@ -22,9 +23,8 @@ func (cm *CM) Start(opts ...CMOpts) error {
 
     startTerm := uint32(0)
 
-    cm.log = append(cm.log, Entry{
-        Term: startTerm,
-        Message: []byte{},
+    cm.log = append(cm.log, common.Entry{
+        RaftTerm: startTerm,
     })
 	cm.becomeFollower(startTerm)
     return fmt.Errorf("Consensus Module encountered error -> %v", server.Serve(lis))
@@ -35,7 +35,7 @@ func (cm *CM) Start(opts ...CMOpts) error {
 // and if it is the leader it replicates the command across
 // all peers
 //
-func (cm *CM) Replicate(key uint32, value string) (string, error) {
+func (cm *CM) Replicate(entries ...common.Entry) (string, error) {
 	cm.mu.Lock()
     defer cm.mu.Unlock()
 
@@ -43,10 +43,13 @@ func (cm *CM) Replicate(key uint32, value string) (string, error) {
         return cm.leader, fmt.Errorf("Node is not leader")
     }
 
-        cm.log = append(cm.log, Entry{
-            Term: cm.currentTerm,
-            Message: entry,
-        })
+    for _, entry := range entries {
+        entry.RaftTerm = cm.currentTerm
+        cm.log = append(cm.log, entry)
+    }
+
+    // Do something here that will inform the client when all transaction
+    // entries have been committed 
 
     return "", nil
 }

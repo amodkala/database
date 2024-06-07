@@ -3,6 +3,8 @@ package raft
 import (
     "sync"
     "time"
+
+    "github.com/amodkala/database/pkg/common"
 )
 
 // CM (Consensus Module) is a struct that implements the Raft consensus
@@ -18,12 +20,12 @@ type CM struct {
     leader     string
     peers      []RaftClient
     lastReset  time.Time
-    commitChan chan Entry
+    commitChan chan common.Entry
 
     // implementation requirements
     currentTerm uint32
     votedFor    string
-    log         []Entry
+    log         []common.Entry
     commitIndex uint32
     lastApplied uint32
     nextIndex   []uint32
@@ -32,15 +34,15 @@ type CM struct {
 
 // New initializes a CM with some of its default values, the rest are
 // initialized when Start is called
-func New(address string, opts ...CMOpts) (*CM, chan Entry) {
+func New(address string, opts ...CMOpts) (*CM, chan common.Entry) {
 
-    commitChan := make(chan Entry)
+    commitChan := make(chan common.Entry)
 
     cm := &CM{
         mu:          sync.Mutex{},
         self:        address,
         commitChan:  commitChan,
-        log:         []Entry{},
+        log:         []common.Entry{},
         commitIndex: 0,
         lastApplied: 0,
         nextIndex:   []uint32{},

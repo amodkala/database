@@ -3,6 +3,8 @@ package raft
 import (
 	"log"
 	"time"
+
+    "github.com/amodkala/database/pkg/common"
 )
 
 func (cm *CM) becomeFollower(term uint32) {
@@ -34,9 +36,8 @@ func (cm *CM) becomeLeader() {
 	cm.state = "leader"
 	cm.leader = cm.self
 	log.Printf("***** term %d -> %s became leader *****\n", cm.currentTerm, cm.self)
-    cm.log = append(cm.log, Entry{
-        Term: cm.currentTerm,
-        Message: []byte{},
+    cm.log = append(cm.log, common.Entry{
+        RaftTerm: cm.currentTerm,
     })
     for i := range cm.nextIndex {
         cm.nextIndex[i] = cm.lastApplied + 1

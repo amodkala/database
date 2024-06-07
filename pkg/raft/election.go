@@ -5,8 +5,6 @@ import (
 	"log"
 	"math/rand"
 	"time"
-
-	"github.com/amodkala/database/pkg/proto"
 )
 
 func (cm *CM) startElectionTimer() {
@@ -59,7 +57,7 @@ func (cm *CM) startElection() {
 
 	for id, peer := range cm.peers {
 
-		go func(ctx context.Context, id int, peer proto.RaftClient, voteChan chan bool) {
+		go func(ctx context.Context, id int, peer RaftClient, voteChan chan bool) {
             defer func() {
                 // Close channel only when all goroutines are done
                 if r := recover(); r != nil && r == "send on closed channel" {
@@ -68,11 +66,11 @@ func (cm *CM) startElection() {
             }()
 
 			cm.mu.Lock()
-            lastLogIndex := int32(len(cm.log) - 1)
-            lastLogTerm := cm.log[lastLogIndex].Term
+            lastLogIndex := uint32(len(cm.log) - 1)
+            lastLogTerm := cm.log[lastLogIndex].RaftTerm
 			cm.mu.Unlock()
 
-			req := &proto.RequestVoteRequest{
+			req := &RequestVoteRequest{
 				Term:         electionTerm,
 				CandidateId:  cm.self,
 				LastLogIndex: lastLogIndex,

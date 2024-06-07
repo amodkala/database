@@ -4,12 +4,14 @@ import (
 	"context"
     "log"
 	"time"
+
+    "github.com/amodkala/database/pkg/common"
 )
 
 //
 // AppendEntries implements a client response to an AppendEntries RPC received from a peer
 //
-func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest) (*proto.AppendEntriesResponse, error) {
+func (cm *CM) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*AppendEntriesResponse, error) {
 	cm.mu.Lock()
     cm.lastReset = time.Now()
     cm.mu.Unlock()
@@ -33,17 +35,17 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
         cm.leader = req.LeaderId
     }
 
-    if req.PrevLogIndex < int32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].Term {
+    if req.PrevLogIndex < uint32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].RaftTerm {
         res.Success = true
 
         logInsertIndex := req.PrevLogIndex + 1
         newEntriesIndex := 0
 
         for {
-            if logInsertIndex >= int32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
+            if logInsertIndex >= uint32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
                 break
             }
-            if cm.log[logInsertIndex].Term != req.Entries[newEntriesIndex].Term {
+            if cm.log[logInsertIndex].RaftTerm != req.Entries[newEntriesIndex].RaftTerm {
                 break
             }
             logInsertIndex++
@@ -53,12 +55,9 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
         if newEntriesIndex < len(req.Entries) {
             log.Printf("term %d -> %s added entries to log %v\n", cm.currentTerm, cm.self, req.Entries)
 
-            newEntries := []Entry{}
+            newEntries := []common.Entry{}
             for _, entry := range req.Entries[newEntriesIndex:] {
-                newEntries = append(newEntries, Entry{
-                    Term: entry.Term,
-                    Message: entry.Message,
-                })
+                newEntries = append(newEntries, *entry)
             }
             cm.log = append(cm.log[:logInsertIndex], newEntries...)
         }
@@ -73,9 +72,8 @@ func (cm *CM) AppendEntries(ctx context.Context, req *proto.AppendEntriesRequest
                 cm.mu.Unlock()
 
                 for _, entry := range entries {
-                    if len(entry.Message) > 0 {
-                        cm.commitChan <- entry.Message
-                    }
+                    // again check whether this entry can be committed
+                    cm.commitChan <- entry
                 }
             }
         }
@@ -96,7 +94,7 @@ func min(a, b uint32) uint32 {
 //
 // RequestVote implements a client response to a RequestVote RPC received from a peer
 //
-func (cm *CM) RequestVote(ctx context.Context, req *proto.RequestVoteRequest) (*proto.RequestVoteResponse, error) {
+func (cm *CM) RequestVote(ctx context.Context, req *RequestVoteRequest) (*RequestVoteResponse, error) {
 	cm.mu.Lock()
     lastLogIndex := int32(len(cm.log) - 1)
     lastLogTerm := cm.log[lastLogIndex].Term
