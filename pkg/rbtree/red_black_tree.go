@@ -12,7 +12,7 @@ const (
 )
 
 type RBTree struct {
-    mu *sync.Mutex
+    mu *sync.RWMutex
     root *RBTreeNode
 }
 
