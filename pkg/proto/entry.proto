@@ -1,0 +1,14 @@
+syntax="proto3";
+package proto;
+option go_package = "github.com/amodkala/database/pkg/common";
+
+import "google/protobuf/timestamp.proto";
+
+message Entry {
+    uint32 raft_term = 1;
+    uint32 key = 2;
+    google.protobuf.Timestamp create_time = 3;
+    string tx_id = 4;
+    string value = 5;
+
+}
