@@ -1,14 +1,5 @@
-Status:
-- [ ] Raft consensus module
-  - [X] Heartbeat mechanism
-  - [X] Elections
-  - [X] RPC requests/responses
-  - [ ] Kubernetes peer discovery
-- [ ] Memtable (Red-Black Tree)
-  - [ ] Operations (upsert, delete, lookup)
-  - [X] Left/Right rotations
-- [ ] Log-Structured Merge Tree
-  - [ ] Write-Ahead Log (WAL)
-  - [ ] Sorted-String Table (SSTable)
-  - [ ] Bloom Filter
-  
+# database
+
+This project started off as a toy implementation of the Raft consensus algorithm and promptly turned into an exercise in scope-creep and yak-shaving. I'm now writing a toy *everything*: replication via Raft, write-ahead log for durability, LSM Tree for disk-resident storage, bloom filters to reduce read amplification, and hopefully that's it. 
+
+Designing Data-Intensive Systems by Martin Kleppmann and Database Internals by Alex Petrov have been major influences on my design choices for this project, and I have nothing but positive things to say about either book (except that they've cost me dozens of hours!) I take rough notes on the chapters that I go through, available for your reading pleasure on my website.
