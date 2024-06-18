@@ -1,15 +1,141 @@
 package wal
 
 import (
+    "encoding/binary"
+    "fmt"
     "os"
     "sync"
+
+    "github.com/amodkala/database/pkg/common"
+
+    "google.golang.org/protobuf/proto"
 )
 
 type WAL struct {
     mu sync.RWMutex
-    file *os.File
+    filepath string
+    offset []uint32 
+    currOffset uint32
 }
 
-func New(filepath string) *WAL 
+func New(filepath string) (*WAL, error) {
+    return &WAL{
+        mu: sync.RWMutex{},
+        filepath: filepath,
+        offset: []uint32{},
+        currOffset: 0,
+    }, nil
+}
 
-func (w *WAL) Write(data []byte) error
+func (w *WAL) Length() uint32 {
+    return uint32(len(w.offset))
+}
+
+func (w *WAL) Write(entries ...*common.Entry) error {
+    w.mu.Lock()
+    defer w.mu.Unlock()
+
+    f, err := os.OpenFile(w.filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        return fmt.Errorf("%v", err)
+    }
+    defer f.Close()
+
+    txBuf, relOffsets, err := marshalEntries(entries...)
+    if err != nil {
+        return fmt.Errorf("%v", err)
+    }
+
+    if n, err := f.Write(txBuf); n != len(txBuf) || err != nil { 
+        return fmt.Errorf("%v", err)
+    }
+    f.Sync()
+
+    for _, offset := range relOffsets {
+        w.offset = append(w.offset, w.currOffset + offset)
+    }
+    w.currOffset += uint32(len(txBuf))
+
+    return nil
+}
+
+func (w *WAL) Read(startIndex, count int) ([]*common.Entry, error) {
+
+    w.mu.RLock()
+    defer w.mu.RUnlock()
+
+    f, err := os.OpenFile(w.filepath, os.O_RDONLY, 0644)
+    if err != nil {
+        return nil, fmt.Errorf("%v", err)
+    }
+    defer f.Close()
+
+    bufSize := w.offset[startIndex + count + 1] - w.offset[startIndex]
+    buf := make([]byte, bufSize)
+
+    if _, err = f.ReadAt(buf, int64(w.offset[startIndex])); err != nil {
+        return nil, fmt.Errorf("%v", err)
+    }
+
+    return unmarshalEntries(buf)
+}
+
+func marshalEntries(entries ...*common.Entry) ([]byte, []uint32, error) {
+    var txBuf []byte
+    relOffset := make([]uint32, len(entries))
+
+    opts := proto.MarshalOptions{
+        Deterministic: true,
+    }
+
+    prevSize := 0
+    for i, entry := range entries {
+
+        // encode the message's size as a byte array
+        sizeBuf := make([]byte, binary.MaxVarintLen64)
+        size := opts.Size(entry)
+        binary.PutUvarint(sizeBuf, uint64(size))
+
+        // encode the message itself to the protobuf wire format
+        b, err := opts.Marshal(entry)
+        if err != nil { 
+            return nil, nil, fmt.Errorf("%v", err)
+        }
+
+        txBuf = append(txBuf, sizeBuf...)
+        txBuf = append(txBuf, b...)
+
+        relOffset[i] = uint32(prevSize)
+        prevSize = binary.MaxVarintLen64 + size
+    }
+
+    return txBuf, relOffset, nil
+}
+
+// have a byte slice which we know is a sequence of alternating uint64 byte
+// encodings and proto.Marshal-ed Entry types. we want to 
+func unmarshalEntries(entryBytes []byte) ([]*common.Entry , error) {
+    var entries []*common.Entry
+
+    opts := proto.UnmarshalOptions{}
+    for nextIndex := 0; nextIndex < len(entryBytes); {
+        
+        sizeBuf := entryBytes[nextIndex: nextIndex + binary.MaxVarintLen64]
+        size, n := binary.Uvarint(sizeBuf)
+        if n < 0 {
+            return nil, fmt.Errorf("error reading size bytes")
+        }
+        b := entryBytes[nextIndex + binary.MaxVarintLen64: nextIndex + int(size) + binary.MaxVarintLen64]
+        var entry common.Entry
+
+        if err := opts.Unmarshal(b, &entry); err != nil {
+            return nil, fmt.Errorf("%v", err)
+        }
+
+        entries = append(entries, &entry)
+        nextIndex = nextIndex + binary.MaxVarintLen64 + int(size)
+    }
+
+
+    return entries, nil
+}
