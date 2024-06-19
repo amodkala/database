@@ -1,6 +1,7 @@
 package wal
 
 import (
+    "bytes"
     "encoding/binary"
     "fmt"
     "os"
@@ -11,6 +12,10 @@ import (
     "google.golang.org/protobuf/proto"
 )
 
+var (
+    emptyBuf = make([]byte, binary.MaxVarintLen64)
+)
+
 type WAL struct {
     mu sync.RWMutex
     filepath string
@@ -18,18 +23,31 @@ type WAL struct {
     currOffset uint32
 }
 
-func New(filepath string) (*WAL, error) {
+func New(filepath string) *WAL {
     return &WAL{
         mu: sync.RWMutex{},
         filepath: filepath,
         offset: []uint32{},
         currOffset: 0,
-    }, nil
+    }
 }
 
 func (w *WAL) Length() uint32 {
     return uint32(len(w.offset))
 }
+
+// for testing only
+// TODO: delete this method
+func (w *WAL) Offsets() []uint32 {
+    return w.offset
+}
+
+func (w *WAL) Clear() error {
+    w.offset = []uint32{}
+    w.currOffset = 0
+    return os.Remove(w.filepath)
+}
+
 
 func (w *WAL) Write(entries ...*common.Entry) error {
     w.mu.Lock()
@@ -59,27 +77,6 @@ func (w *WAL) Write(entries ...*common.Entry) error {
     return nil
 }
 
-func (w *WAL) Read(startIndex, count int) ([]*common.Entry, error) {
-
-    w.mu.RLock()
-    defer w.mu.RUnlock()
-
-    f, err := os.OpenFile(w.filepath, os.O_RDONLY, 0644)
-    if err != nil {
-        return nil, fmt.Errorf("%v", err)
-    }
-    defer f.Close()
-
-    bufSize := w.offset[startIndex + count + 1] - w.offset[startIndex]
-    buf := make([]byte, bufSize)
-
-    if _, err = f.ReadAt(buf, int64(w.offset[startIndex])); err != nil {
-        return nil, fmt.Errorf("%v", err)
-    }
-
-    return unmarshalEntries(buf)
-}
-
 func marshalEntries(entries ...*common.Entry) ([]byte, []uint32, error) {
     var txBuf []byte
     relOffset := make([]uint32, len(entries))
@@ -106,26 +103,74 @@ func marshalEntries(entries ...*common.Entry) ([]byte, []uint32, error) {
         txBuf = append(txBuf, b...)
 
         relOffset[i] = uint32(prevSize)
-        prevSize = binary.MaxVarintLen64 + size
+        prevSize += binary.MaxVarintLen64 + size
     }
 
     return txBuf, relOffset, nil
 }
 
+
+func (w *WAL) Read(startIndex, count uint32) ([]*common.Entry, error) {
+
+    w.mu.RLock()
+    defer w.mu.RUnlock()
+
+    if startIndex >= w.Length() || startIndex < 0 {
+        return nil, fmt.Errorf("chosen startIndex is out of range")
+    }
+
+    if startIndex + count > w.Length() {
+        return nil, fmt.Errorf("at least one index is out of range")
+    }
+
+    f, err := os.OpenFile(w.filepath, os.O_RDONLY, 0644)
+    if err != nil {
+        return nil, fmt.Errorf("%v", err)
+    }
+    defer f.Close()
+
+    // all entries from startIndex to the latest
+    var bufSize uint32
+    switch startIndex + count {
+    case w.Length():
+        bufSize = w.currOffset - w.offset[startIndex]
+    default:
+        bufSize = w.offset[startIndex + count] - w.offset[startIndex]
+    }
+    buf := make([]byte, bufSize)
+
+    initOffset := int64(w.offset[startIndex])
+    if _, err = f.ReadAt(buf, initOffset); err != nil {
+        return nil, fmt.Errorf("%v", err)
+    }
+
+    return unmarshalEntries(buf)
+}
+
 // have a byte slice which we know is a sequence of alternating uint64 byte
 // encodings and proto.Marshal-ed Entry types. we want to 
-func unmarshalEntries(entryBytes []byte) ([]*common.Entry , error) {
+func unmarshalEntries(entryBytes []byte) ([]*common.Entry, error) {
     var entries []*common.Entry
 
     opts := proto.UnmarshalOptions{}
     for nextIndex := 0; nextIndex < len(entryBytes); {
         
+        if nextIndex + binary.MaxVarintLen64 > len(entryBytes) {
+            return nil, fmt.Errorf("attempted to read out of range")
+        }
         sizeBuf := entryBytes[nextIndex: nextIndex + binary.MaxVarintLen64]
+        if bytes.Equal(sizeBuf, emptyBuf) {
+            // buffer size greater than data contained within, no need to
+            // continue
+            break
+        }
         size, n := binary.Uvarint(sizeBuf)
         if n < 0 {
             return nil, fmt.Errorf("error reading size bytes")
         }
+
         b := entryBytes[nextIndex + binary.MaxVarintLen64: nextIndex + int(size) + binary.MaxVarintLen64]
+
         var entry common.Entry
 
         if err := opts.Unmarshal(b, &entry); err != nil {
