@@ -50,6 +50,11 @@ func (w *WAL) Clear() error {
 
 
 func (w *WAL) Write(entries ...*common.Entry) error {
+    txBuf, relOffsets, err := marshalEntries(entries...)
+    if err != nil {
+        return fmt.Errorf("%v", err)
+    }
+
     w.mu.Lock()
     defer w.mu.Unlock()
 
@@ -58,11 +63,6 @@ func (w *WAL) Write(entries ...*common.Entry) error {
         return fmt.Errorf("%v", err)
     }
     defer f.Close()
-
-    txBuf, relOffsets, err := marshalEntries(entries...)
-    if err != nil {
-        return fmt.Errorf("%v", err)
-    }
 
     if n, err := f.Write(txBuf); n != len(txBuf) || err != nil { 
         return fmt.Errorf("%v", err)
@@ -110,18 +110,41 @@ func marshalEntries(entries ...*common.Entry) ([]byte, []uint32, error) {
 }
 
 
-func (w *WAL) Read(startIndex, count uint32) ([]*common.Entry, error) {
+func (w *WAL) Read(indexes ...uint32) ([]*common.Entry, error) {
+
+    if len(indexes) != 1 && len(indexes) != 2 {
+        return nil, fmt.Errorf("Read only accepts one or two indexes")
+    }
 
     w.mu.RLock()
     defer w.mu.RUnlock()
 
-    if startIndex >= w.Length() || startIndex < 0 {
-        return nil, fmt.Errorf("chosen startIndex is out of range")
+    if w.Length() == 0 {
+        return nil, fmt.Errorf("cannot Read from empty WAL")
     }
 
-    if startIndex + count > w.Length() {
-        return nil, fmt.Errorf("at least one index is out of range")
+    start := indexes[0]
+    if start >= w.Length() || start < 0 {
+        return nil, fmt.Errorf("start index out of range")
     }
+    initOffset := w.offset[start]
+
+    end := start
+    if len(indexes) == 2{
+        end = indexes[1]
+        if end >= w.Length() || end < start {
+            return nil, fmt.Errorf("end index out of range")
+        }
+    }
+
+    var bufSize uint32
+    switch end {
+    case w.Length() - 1:
+        bufSize = w.currOffset - initOffset
+    default:
+        bufSize = w.offset[end+1] - initOffset
+    }
+    buf := make([]byte, bufSize)
 
     f, err := os.OpenFile(w.filepath, os.O_RDONLY, 0644)
     if err != nil {
@@ -129,18 +152,7 @@ func (w *WAL) Read(startIndex, count uint32) ([]*common.Entry, error) {
     }
     defer f.Close()
 
-    // all entries from startIndex to the latest
-    var bufSize uint32
-    switch startIndex + count {
-    case w.Length():
-        bufSize = w.currOffset - w.offset[startIndex]
-    default:
-        bufSize = w.offset[startIndex + count] - w.offset[startIndex]
-    }
-    buf := make([]byte, bufSize)
-
-    initOffset := int64(w.offset[startIndex])
-    if _, err = f.ReadAt(buf, initOffset); err != nil {
+    if _, err = f.ReadAt(buf, int64(initOffset)); err != nil {
         return nil, fmt.Errorf("%v", err)
     }
 

@@ -84,7 +84,7 @@ func TestRWSingleEntry(t *testing.T) {
         t.Errorf("error while writing entry: %v", err)
     }
 
-    entries, err := testWAL.Read(0, 1)
+    entries, err := testWAL.Read(0)
     if err != nil {
         t.Errorf("error while reading entry: %v", err)
     }
@@ -113,7 +113,7 @@ func TestMultipleWrites(t *testing.T) {
         t.Errorf("not all entries written")
     }
 
-    entries, err := testWAL.Read(0, uint32(len(testEntries)))
+    entries, err := testWAL.Read(0, uint32(len(testEntries) - 1))
     if err != nil {
         t.Errorf("error reading entries from wal: %v", err)
     }
@@ -136,7 +136,7 @@ func TestMultipleReads(t *testing.T) {
 
     entries := []*common.Entry{}
     for i := range uint32(len(testEntries)) {
-        entry, err := testWAL.Read(i, 1)
+        entry, err := testWAL.Read(i)
         if err != nil {
             t.Errorf("error while reading entry: %v", err)
         }
@@ -150,3 +150,4 @@ func TestMultipleReads(t *testing.T) {
     }
 }
 
+// TODO: add tests for each failure mode of the Read method
