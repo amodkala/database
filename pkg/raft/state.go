@@ -36,7 +36,7 @@ func (cm *CM) becomeLeader() {
 	cm.state = "leader"
 	cm.leader = cm.self
 	log.Printf("***** term %d -> %s became leader *****\n", cm.currentTerm, cm.self)
-    cm.log = append(cm.log, common.Entry{
+    cm.log.Write(&common.Entry{
         RaftTerm: cm.currentTerm,
     })
     for i := range cm.nextIndex {

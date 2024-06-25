@@ -47,7 +47,13 @@ func (cm *CM) startElection() {
 	electionTerm := cm.currentTerm
 	cm.lastReset = time.Now()
 	cm.votedFor = cm.self
+    peers := len(cm.peers)
 	cm.mu.Unlock()
+
+    if peers == 0 {
+        cm.becomeLeader()
+        return
+    }
 
 	votes := 1
 
@@ -66,8 +72,13 @@ func (cm *CM) startElection() {
             }()
 
 			cm.mu.Lock()
-            lastLogIndex := uint32(len(cm.log) - 1)
-            lastLogTerm := cm.log[lastLogIndex].RaftTerm
+            lastLogIndex := cm.log.Length() - 1
+            lastLogEntries, err := cm.log.Read(lastLogIndex)
+            if err != nil {
+                return
+            }
+            lastLogEntry := lastLogEntries[0]
+            lastLogTerm := lastLogEntry.RaftTerm
 			cm.mu.Unlock()
 
 			req := &RequestVoteRequest{

@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+    "fmt"
     "log"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 //
 func (cm *CM) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*AppendEntriesResponse, error) {
 	cm.mu.Lock()
+    defer cm.mu.Unlock()
     cm.lastReset = time.Now()
-    cm.mu.Unlock()
 
     // start := time.Now()
 
@@ -28,24 +29,32 @@ func (cm *CM) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*Ap
     }
 
 	if req.Term > cm.currentTerm || cm.state != "follower"{
+        cm.leader = req.LeaderId
 		cm.becomeFollower(req.Term)
 	}
 
-    if cm.leader != req.LeaderId {
-        cm.leader = req.LeaderId
+    prevLogEntries, err := cm.log.Read(req.PrevLogIndex)
+    if err != nil {
+        return nil, fmt.Errorf("error reading previous log entries: %v", err)
     }
+    prevLogEntry := prevLogEntries[0]
 
-    if req.PrevLogIndex < uint32(len(cm.log)) && req.PrevLogTerm == cm.log[req.PrevLogIndex].RaftTerm {
+    if req.PrevLogIndex < cm.log.Length() && req.PrevLogTerm == prevLogEntry.RaftTerm {
         res.Success = true
 
         logInsertIndex := req.PrevLogIndex + 1
         newEntriesIndex := 0
 
         for {
-            if logInsertIndex >= uint32(len(cm.log)) || newEntriesIndex >= len(req.Entries) {
+            if logInsertIndex >= cm.log.Length() || newEntriesIndex >= len(req.Entries) {
                 break
             }
-            if cm.log[logInsertIndex].RaftTerm != req.Entries[newEntriesIndex].RaftTerm {
+            logInsertEntries, err := cm.log.Read(logInsertIndex)
+            if err != nil {
+                return nil, fmt.Errorf("error reading log insert entries: %v", err)
+            }
+            logInsertEntry := logInsertEntries[0]
+            if logInsertEntry.RaftTerm != req.Entries[newEntriesIndex].RaftTerm {
                 break
             }
             logInsertIndex++
@@ -55,25 +64,30 @@ func (cm *CM) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*Ap
         if newEntriesIndex < len(req.Entries) {
             log.Printf("term %d -> %s added entries to log %v\n", cm.currentTerm, cm.self, req.Entries)
 
-            newEntries := []common.Entry{}
+            newEntries := []*common.Entry{}
             for _, entry := range req.Entries[newEntriesIndex:] {
-                newEntries = append(newEntries, *entry)
+                newEntries = append(newEntries, entry)
             }
-            cm.log = append(cm.log[:logInsertIndex], newEntries...)
+            // this was the initial implementation, have to figure out what was
+            // going on here
+            // TODO: replicate this functionality with new WAL implementation
+            // cm.log = append(cm.log[:logInsertIndex], newEntries...)
+            cm.log.Write(newEntries...)
         }
 
         if req.LeaderCommit > cm.commitIndex {
-            cm.commitIndex = min(req.LeaderCommit, uint32(len(cm.log)-1))
+            cm.commitIndex = min(req.LeaderCommit, cm.log.Length() - 1)
             if cm.commitIndex > cm.lastApplied {
-                // tell client these have been committed
-                cm.mu.Lock()
-                entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
+                // indicate that log entries from index cm.lastApplied + 1 to
+                // cm.commitIndex (inclusive) can be committed
+                entries, err := cm.log.Read(cm.lastApplied+1, cm.commitIndex)
+                if err != nil {
+                    return nil, fmt.Errorf("error reading entries for commitment: %v", err)
+                }
                 cm.lastApplied = cm.commitIndex
-                cm.mu.Unlock()
 
                 for _, entry := range entries {
-                    // again check whether this entry can be committed
-                    cm.commitChan <- entry
+                    cm.commitChans[entry.TxId] <- entry
                 }
             }
         }
@@ -96,10 +110,16 @@ func min(a, b uint32) uint32 {
 //
 func (cm *CM) RequestVote(ctx context.Context, req *RequestVoteRequest) (*RequestVoteResponse, error) {
 	cm.mu.Lock()
-    lastLogIndex := int32(len(cm.log) - 1)
-    lastLogTerm := cm.log[lastLogIndex].Term
+	defer cm.mu.Unlock()
+
+    lastLogIndex := cm.log.Length() - 1
+    lastLogEntries, err := cm.log.Read(lastLogIndex)
+    if err != nil {
+        return nil, fmt.Errorf("error reading last log entry: %v", err)
+    }
+    lastLogEntry := lastLogEntries[0]
+    lastLogTerm := lastLogEntry.RaftTerm
     cm.lastReset = time.Now()
-	cm.mu.Unlock()
 
     start := time.Now()
 

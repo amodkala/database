@@ -19,9 +19,18 @@ func (cm *CM) sendHeartbeats() {
 			cm.mu.Lock()
 			nextIndex := cm.nextIndex[id]
 			prevLogIndex := nextIndex - 1
-			prevLogTerm := cm.log[prevLogIndex].RaftTerm
-            for _, entry := range cm.log[nextIndex:] {
-                entries = append(entries, &entry)
+            prevLogEntries, err := cm.log.Read(prevLogIndex)
+            if err != nil {
+                // TODO: add error handling
+            }
+            prevLogEntry := prevLogEntries[0]
+			prevLogTerm := prevLogEntry.RaftTerm
+            newEntries, err := cm.log.Read(nextIndex, cm.log.Length() - 1)
+            if err != nil {
+                // TODO: add error handling
+            }
+            for _, entry := range newEntries {
+                entries = append(entries, entry)
             }
 
             // log.Printf(`term %d -> leader %s sending heartbeats with params:
@@ -62,8 +71,13 @@ func (cm *CM) sendHeartbeats() {
                     //     nextIndex: %d`, cm.currentTerm, cm.self, id, cm.nextIndex[id])
 
 					savedCommitIndex := cm.commitIndex
-					for i := cm.commitIndex + 1; i < uint32(len(cm.log)); i++ {
-						if cm.log[i].RaftTerm == cm.currentTerm {
+					for i := cm.commitIndex + 1; i < cm.log.Length(); i++ {
+                        entries, err := cm.log.Read(i)
+                        if err != nil {
+                            // TODO: handle err
+                        }
+                        entry := entries[0]
+						if entry.RaftTerm == cm.currentTerm {
 							matchCount := 1
 							for id := range cm.peers {
 								if cm.matchIndex[id] >= i {
@@ -78,13 +92,16 @@ func (cm *CM) sendHeartbeats() {
 					if savedCommitIndex != cm.commitIndex {
 						if cm.commitIndex > cm.lastApplied {
 							// tell client these have been committed
-							entries := cm.log[cm.lastApplied+1 : cm.commitIndex+1]
+							entries, err := cm.log.Read(cm.lastApplied+1, cm.commitIndex)
+                            if err != nil {
+                                // TODO: add error handling
+                            }
 							cm.lastApplied = cm.commitIndex
 
 							for _, entry := range entries {
                                 // perform checks for whether each entry can be
                                 // committed
-                                cm.commitChan <- entry
+                                cm.commitChans[entry.TxId] <- entry
 							}
 						}
 					}

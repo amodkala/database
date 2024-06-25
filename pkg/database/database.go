@@ -35,8 +35,3 @@ func New(addr string, id uint32) Client {
 
     return Client{ cm, wal, lsm, }
 }
-
-func (c Client) Write(records ...Record) {
-}
-
-func (c Client) Read(key uint32) (value string, err error)

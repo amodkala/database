@@ -36,16 +36,20 @@ func (tree RBTree) Search(key int) (data []byte, ok bool) {
         return []byte{}, false
     }
 
-    tree.mu.Lock()
-    defer tree.mu.Unlock()
+    tree.mu.RLock()
+    defer tree.mu.RUnlock()
 
     curr := tree.root
-    for ;curr != nil && curr.key != key; {
+    for curr != nil && curr.key != key {
         if key < curr.key {
             curr = curr.left
         } else {
             curr = curr.right
         }
+    }
+
+    if curr == nil {
+        return nil, false
     }
     return curr.data, true
 }

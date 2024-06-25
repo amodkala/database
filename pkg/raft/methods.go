@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 
     "github.com/amodkala/database/pkg/common"
+    tx "github.com/amodkala/database/pkg/transaction"
 )
 
 func (cm *CM) Start(opts ...CMOpts) error {
@@ -23,7 +24,7 @@ func (cm *CM) Start(opts ...CMOpts) error {
 
     startTerm := uint32(0)
 
-    cm.log = append(cm.log, common.Entry{
+    cm.log.Write(&common.Entry{
         RaftTerm: startTerm,
     })
 	cm.becomeFollower(startTerm)
@@ -35,7 +36,8 @@ func (cm *CM) Start(opts ...CMOpts) error {
 // and if it is the leader it replicates the command across
 // all peers
 //
-func (cm *CM) Replicate(entries ...common.Entry) (string, error) {
+func (cm *CM) Replicate(tx tx.Tx) (string, error) {
+
 	cm.mu.Lock()
     defer cm.mu.Unlock()
 
@@ -43,13 +45,37 @@ func (cm *CM) Replicate(entries ...common.Entry) (string, error) {
         return cm.leader, fmt.Errorf("Node is not leader")
     }
 
-    for _, entry := range entries {
+    for _, entry := range tx.Entries {
         entry.RaftTerm = cm.currentTerm
-        cm.log = append(cm.log, entry)
     }
 
-    // Do something here that will inform the client when all transaction
-    // entries have been committed 
+    id := tx.ID()
+    if _, ok := cm.commitChans[id]; ok {
+        return "", fmt.Errorf("transaction id %s is already in use", id)
+    }
+    txChan := make(chan *common.Entry)
+    cm.commitChans[id] = txChan
+
+    if err := cm.log.Write(tx.Entries...); err != nil {
+        return "", fmt.Errorf("error writing entries to raft consensus log: %v", err)
+    }
+
+    // TODO: replace this with something that makes more sense
+    done := make(chan interface{})
+    go func(done chan interface{}) {
+        defer close(done)
+        count := 0
+        for {
+            select {
+            case entry := <-txChan:
+                fmt.Printf("entry %v ready for commit", entry)
+            default:
+                if count == len(tx.Entries) { return }
+            }
+        }
+    }(done)
+
+    <-done
 
     return "", nil
 }
