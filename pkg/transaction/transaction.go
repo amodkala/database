@@ -6,7 +6,7 @@ import (
 
 type Tx struct {
     id string
-    Entries []*common.Entry
+    entries []*common.Entry
 }
 
 func New(id string, entries ...*common.Entry) Tx {

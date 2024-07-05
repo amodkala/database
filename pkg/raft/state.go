@@ -39,8 +39,9 @@ func (cm *CM) becomeLeader() {
     cm.log.Write(&common.Entry{
         RaftTerm: cm.currentTerm,
     })
-    for i := range cm.nextIndex {
+    for i := range cm.peers {
         cm.nextIndex[i] = cm.lastApplied + 1
+        cm.matchIndex[i] = 0
     }
 	cm.mu.Unlock()
 

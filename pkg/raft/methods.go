@@ -57,7 +57,7 @@ func (cm *CM) Replicate(tx tx.Tx) (string, error) {
         return cm.leader, fmt.Errorf("Node is not leader")
     }
 
-    for _, entry := range tx.Entries {
+    for _, entry := range tx.Entries() {
         entry.RaftTerm = cm.currentTerm
     }
 
@@ -68,30 +68,12 @@ func (cm *CM) Replicate(tx tx.Tx) (string, error) {
     txChan := make(chan *common.Entry)
     cm.txChans[id] = txChan
 
-    if err := cm.log.Write(tx.Entries...); err != nil {
+    if err := cm.log.Write(tx.Entries()...); err != nil {
         return "", fmt.Errorf("error writing entries to raft consensus log: %v", err)
     }
-
-    log.Println("waiting to replicate transaction")
-    // TODO: replace this with something that makes more sense
-    done := make(chan interface{})
-    go func(done chan interface{}) {
-        defer close(done)
-        count := 0
-        for {
-            select {
-            case entry := <-txChan:
-                log.Printf("entry %v ready for commit", entry)
-            default:
-                if count == len(tx.Entries) { 
-                    done <- struct{}{} 
-                    return
-                }
-            }
-        }
-    }(done)
-
-    <-done
+    cm.mu.Lock()
+    cm.lastApplied += tx.Length()
+    cm.mu.Unlock()
 
     return "", nil
 }
