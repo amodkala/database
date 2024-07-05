@@ -68,11 +68,9 @@ func (cm *CM) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*Ap
             for _, entry := range req.Entries[newEntriesIndex:] {
                 newEntries = append(newEntries, entry)
             }
-            // this was the initial implementation, have to figure out what was
-            // going on here
-            // TODO: replicate this functionality with new WAL implementation
-            // cm.log = append(cm.log[:logInsertIndex], newEntries...)
-            cm.log.Write(newEntries...)
+            if err := cm.log.Write(newEntries...); err != nil {
+                return nil, fmt.Errorf("error writing new entries to log: %v", err)
+            }
         }
 
         if req.LeaderCommit > cm.commitIndex {
@@ -87,7 +85,7 @@ func (cm *CM) AppendEntries(ctx context.Context, req *AppendEntriesRequest) (*Ap
                 cm.lastApplied = cm.commitIndex
 
                 for _, entry := range entries {
-                    cm.commitChans[entry.TxId] <- entry
+                    cm.commitChan <- entry
                 }
             }
         }

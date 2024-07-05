@@ -2,6 +2,7 @@ package raft
 
 import (
     "fmt"
+    "log"
 	"net"
 
 	"google.golang.org/grpc"
@@ -28,7 +29,18 @@ func (cm *CM) Start(opts ...CMOpts) error {
         RaftTerm: startTerm,
     })
 	cm.becomeFollower(startTerm)
-    return fmt.Errorf("Consensus Module encountered error -> %v", server.Serve(lis))
+    
+    go func() {
+        cm.errChan <- server.Serve(lis)
+    }()
+
+    for {
+        select {
+        case err :=  <-cm.errChan:
+            return fmt.Errorf("Consensus Module encountered error -> %v", err)
+        default:
+        }
+    }
 }
 
 //
@@ -50,16 +62,17 @@ func (cm *CM) Replicate(tx tx.Tx) (string, error) {
     }
 
     id := tx.ID()
-    if _, ok := cm.commitChans[id]; ok {
+    if _, ok := cm.txChans[id]; ok {
         return "", fmt.Errorf("transaction id %s is already in use", id)
     }
     txChan := make(chan *common.Entry)
-    cm.commitChans[id] = txChan
+    cm.txChans[id] = txChan
 
     if err := cm.log.Write(tx.Entries...); err != nil {
         return "", fmt.Errorf("error writing entries to raft consensus log: %v", err)
     }
 
+    log.Println("waiting to replicate transaction")
     // TODO: replace this with something that makes more sense
     done := make(chan interface{})
     go func(done chan interface{}) {
@@ -68,9 +81,12 @@ func (cm *CM) Replicate(tx tx.Tx) (string, error) {
         for {
             select {
             case entry := <-txChan:
-                fmt.Printf("entry %v ready for commit", entry)
+                log.Printf("entry %v ready for commit", entry)
             default:
-                if count == len(tx.Entries) { return }
+                if count == len(tx.Entries) { 
+                    done <- struct{}{} 
+                    return
+                }
             }
         }
     }(done)

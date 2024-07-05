@@ -75,6 +75,7 @@ func (cm *CM) startElection() {
             lastLogIndex := cm.log.Length() - 1
             lastLogEntries, err := cm.log.Read(lastLogIndex)
             if err != nil {
+                cm.errChan <- err
                 return
             }
             lastLogEntry := lastLogEntries[0]
@@ -88,13 +89,11 @@ func (cm *CM) startElection() {
 				LastLogTerm:  lastLogTerm,
 			}
 
-            start := time.Now()
 			res, err := peer.RequestVote(ctx, req)
-            log.Printf(`term %d -> candidate %s got vote request response from peer %d in %d ms`,
-            cm.currentTerm, cm.self, id, time.Since(start).Milliseconds())
             if err != nil {
                 log.Printf("%v", err)
                 voteChan <- false
+                cm.errChan <- err
                 return
             }
 

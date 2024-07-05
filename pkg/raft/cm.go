@@ -22,7 +22,9 @@ type CM struct {
     leader     string
     peers      []RaftClient
     lastReset  time.Time
-    commitChans map[string]chan *common.Entry
+    txChans map[string]chan *common.Entry
+    commitChan chan *common.Entry
+    errChan chan error
 
     // implementation requirements
     currentTerm uint32
@@ -43,7 +45,9 @@ func New(id, address string, opts ...CMOpts) *CM {
     cm := &CM{
         mu:          sync.Mutex{},
         self:        address,
-        commitChans:  make(map[string]chan *common.Entry),
+        txChans:  make(map[string]chan *common.Entry),
+        commitChan: make(chan *common.Entry),
+        errChan: make(chan error),
         log:         log,
         commitIndex: 0,
         lastApplied: 0,
