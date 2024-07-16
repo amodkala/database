@@ -2,7 +2,6 @@ package raft
 
 import (
     "fmt"
-    "log"
 	"net"
 
 	"google.golang.org/grpc"
@@ -43,6 +42,8 @@ func (cm *CM) Start(opts ...CMOpts) error {
     }
 }
 
+func (cm *CM) Length() uint32 { return cm.log.Length() }
+
 //
 // Replicate sends commands to the local consensus model,
 // and if it is the leader it replicates the command across
@@ -71,9 +72,8 @@ func (cm *CM) Replicate(tx tx.Tx) (string, error) {
     if err := cm.log.Write(tx.Entries()...); err != nil {
         return "", fmt.Errorf("error writing entries to raft consensus log: %v", err)
     }
-    cm.mu.Lock()
+
     cm.lastApplied += tx.Length()
-    cm.mu.Unlock()
 
     return "", nil
 }

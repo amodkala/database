@@ -2,21 +2,23 @@ package lsm
 
 import (
     "github.com/amodkala/database/pkg/rbtree"
+    sst "github.com/amodkala/database/pkg/sstable"
 )
 
 // LSMTree is an implementation of a multicomponent LSM Tree 
 type LSMTree struct {
     id uint32
     memtable rbtree.RBTree
+    sstables []sst.SSTable
 }
 
 // New accepts an identifier which is used as a prefix for any files associated
 // with this LSMTree (logs, SSTables, etc.) and returns a pointer to an LSM Tree
 func New(id uint32) LSMTree {
-    memtable := rbtree.New()
     return LSMTree{
-        id,
-        memtable,
+        id: id,
+        memtable: rbtree.New(),
+        sstables: []sst.SSTable{},
     }
 }
 

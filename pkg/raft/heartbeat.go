@@ -10,7 +10,10 @@ func (cm *CM) sendHeartbeats() {
 
     cm.mu.Lock()
     heartbeatTerm := cm.currentTerm
+    peers := len(cm.peers)
     cm.mu.Unlock()
+
+    if peers == 0 { return }
 
     for id, peer := range cm.peers {
 
