@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-    "github.com/amodkala/database/pkg/common"
+    "github.com/amodkala/raft/pkg/common"
 )
 
 func (cm *CM) becomeFollower(term uint32) {

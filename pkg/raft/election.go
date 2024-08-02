@@ -13,7 +13,7 @@ func (cm *CM) startElectionTimer() {
     cm.lastReset = time.Now()
 	cm.mu.Unlock()
 
-	timerLength := newDuration(1500)
+	timerLength := newDuration(500)
 
 	ticker := time.NewTicker(time.Duration(10) * time.Millisecond)
 	defer ticker.Stop()

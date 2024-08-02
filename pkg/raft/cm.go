@@ -5,8 +5,8 @@ import (
     "sync"
     "time"
 
-    "github.com/amodkala/database/pkg/common"
-    "github.com/amodkala/database/pkg/wal"
+    "github.com/amodkala/raft/pkg/common"
+    "github.com/amodkala/raft/pkg/wal"
 )
 
 // CM (Consensus Module) is a struct that implements the Raft consensus

@@ -1,4 +1,4 @@
-module github.com/amodkala/database
+module github.com/amodkala/raft
 
 go 1.22
 

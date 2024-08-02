@@ -1,6 +1,6 @@
 syntax="proto3";
 package proto;
-option go_package = "github.com/amodkala/database/pkg/raft";
+option go_package = "github.com/amodkala/raft/pkg/raft";
 
 import "entry.proto";
 

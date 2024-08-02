@@ -7,9 +7,9 @@ import (
 
     ts "google.golang.org/protobuf/types/known/timestamppb"
 
-    "github.com/amodkala/database/pkg/common"
-    tx "github.com/amodkala/database/pkg/transaction"
-    "github.com/amodkala/database/pkg/raft"
+    "github.com/amodkala/raft/pkg/common"
+    "github.com/amodkala/raft/pkg/raft"
+    tx "github.com/amodkala/raft/pkg/transaction"
 )
 
 const (
@@ -41,7 +41,7 @@ func main() {
         }
     }()    
 
-    time.Sleep(5 * time.Second)
+    time.Sleep(time.Second)
 
     if leaderId, err := cm.Replicate(transaction); err != nil {
         switch leaderId {
@@ -51,7 +51,4 @@ func main() {
             log.Printf("leader is %s", leaderId)
         }
     }
-
-    fmt.Println(fmt.Sprintf("log now contains %d entries", cm.Length()))
-
 }

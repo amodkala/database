@@ -6,8 +6,8 @@ import (
 
 	"google.golang.org/grpc"
 
-    "github.com/amodkala/database/pkg/common"
-    tx "github.com/amodkala/database/pkg/transaction"
+    "github.com/amodkala/raft/pkg/common"
+    tx "github.com/amodkala/raft/pkg/transaction"
 )
 
 func (cm *CM) Start(opts ...CMOpts) error {
@@ -43,6 +43,10 @@ func (cm *CM) Start(opts ...CMOpts) error {
 }
 
 func (cm *CM) Length() uint32 { return cm.log.Length() }
+
+func (cm *CM) Read() ([]*common.Entry, error) { 
+    return cm.log.Read(0, cm.log.Length() - 1) 
+}
 
 //
 // Replicate sends commands to the local consensus model,

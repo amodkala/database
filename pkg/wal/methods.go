@@ -4,10 +4,9 @@ import (
     "bytes"
     "encoding/binary"
     "fmt"
-    "log"
     "os"
 
-    "github.com/amodkala/database/pkg/common"
+    "github.com/amodkala/raft/pkg/common"
 
     "google.golang.org/protobuf/proto"
 )
@@ -56,7 +55,7 @@ func (w *WAL) Write(entries ...*common.Entry) error {
         w.offset = append(w.offset, w.currOffset + offset)
     }
 
-    log.Println(fmt.Sprintf("wrote %d bytes to log", len(txBuf)))
+    // log.Println(fmt.Sprintf("wrote %d bytes to log", len(txBuf)))
 
     w.currOffset += uint32(len(txBuf))
 
@@ -116,7 +115,7 @@ func (w *WAL) Read(indexes ...uint32) ([]*common.Entry, error) {
     initOffset := w.offset[start]
 
     end := start
-    if len(indexes) == 2{
+    if len(indexes) == 2 {
         end = indexes[1]
         if end >= w.Length() || end < start {
             return nil, fmt.Errorf("end index out of range")

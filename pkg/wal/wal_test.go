@@ -7,7 +7,7 @@ import (
     "testing"
     "time"
 
-    "github.com/amodkala/database/pkg/common"
+    "github.com/amodkala/raft/pkg/common"
 
 	ts "google.golang.org/protobuf/types/known/timestamppb"
     "google.golang.org/protobuf/proto"
@@ -118,8 +118,8 @@ func TestMultipleWrites(t *testing.T) {
         t.Errorf("error reading entries from wal: %v", err)
     }
 
-    for i := range len(testEntries) {
-        if !proto.Equal(testEntries[i], entries[i]) {
+    for i, entry := range entries {
+        if !proto.Equal(testEntries[i], entry) {
             t.Errorf("entries at index %d were not equal", i)
         }
     }
@@ -143,11 +143,32 @@ func TestMultipleReads(t *testing.T) {
         entries = append(entries, entry...)
     }
 
-    for i, entry := range testEntries {
+    for i, entry := range entries {
         if !proto.Equal(testEntries[i], entry) {
             t.Errorf("entries were not equal")
         }
     }
+}
+
+func TestSingleRead(t *testing.T) {
+    testWAL := New("/tmp/singleread")
+    defer testWAL.Clear()
+
+    if err := testWAL.Write(testEntries...); err != nil {
+        t.Errorf("error while writing entry: %v", err)
+    }
+
+    entries, err := testWAL.Read(0, testWAL.Length() - 1)
+    if err != nil {
+        t.Errorf("error while reading entries: %v", err)
+    }
+
+    for i, entry := range entries {
+        if !proto.Equal(testEntries[i], entry) {
+            t.Errorf("entries were not equal")
+        }
+    }
+
 }
 
 // TODO: add tests for each failure mode of the Read method

@@ -1,7 +1,7 @@
 package transaction 
 
 import (
-    "github.com/amodkala/database/pkg/common"
+    "github.com/amodkala/raft/pkg/common"
 )
 
 type Tx struct {

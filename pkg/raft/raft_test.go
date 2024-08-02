@@ -4,8 +4,8 @@ import (
     "testing"
     "time"
 
-    "github.com/amodkala/database/pkg/common"
-    tx "github.com/amodkala/database/pkg/transaction"
+    "github.com/amodkala/raft/pkg/common"
+    tx "github.com/amodkala/raft/pkg/transaction"
 
 	ts "google.golang.org/protobuf/types/known/timestamppb"
 
