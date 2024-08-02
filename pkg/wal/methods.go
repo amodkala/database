@@ -19,12 +19,6 @@ func (w *WAL) Length() uint32 {
     return uint32(len(w.offset))
 }
 
-// for testing only
-// TODO: delete this method
-func (w *WAL) Offsets() []uint32 {
-    return w.offset
-}
-
 func (w *WAL) Clear() error {
     w.offset = []uint32{}
     w.currOffset = 0

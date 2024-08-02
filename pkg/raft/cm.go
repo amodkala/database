@@ -38,13 +38,13 @@ type CM struct {
 
 // New initializes a CM with some of its default values, the rest are
 // initialized when Start is called
-func New(id, address string, opts ...CMOpts) *CM {
+func New(id, serverAddress string, opts ...CMOpts) *CM {
 
     log := wal.New(fmt.Sprintf("/var/%s-log.wal", id))
 
     cm := &CM{
         mu:          sync.Mutex{},
-        self:        address,
+        self:        serverAddress,
         txChans:  make(map[string]chan *common.Entry),
         commitChan: make(chan *common.Entry),
         errChan: make(chan error),

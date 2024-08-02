@@ -55,3 +55,8 @@ what if CM owns WAL?
 
 can we solve transaction atomicity with a channel of channels?
 - would be a channel of (tx id, commit)
+
+Raft Demo
+- handler at /write route expects array of JSON {key, value} objects, passes to
+  consensus module
+  - if CM isn't leader, handler forwards request to raft leader

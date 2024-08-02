@@ -10,8 +10,8 @@ import (
     tx "github.com/amodkala/raft/pkg/transaction"
 )
 
-func (cm *CM) Start(opts ...CMOpts) error {
-    lis, err := net.Listen("tcp", cm.self)
+func (cm *CM) Start(raftAddress string, opts ...CMOpts) error {
+    lis, err := net.Listen("tcp", raftAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen -> %v", err)
 	}
@@ -24,15 +24,18 @@ func (cm *CM) Start(opts ...CMOpts) error {
 
     startTerm := uint32(0)
 
-    cm.log.Write(&common.Entry{
+    if err := cm.log.Write(&common.Entry{
         RaftTerm: startTerm,
-    })
+    }); err != nil {
+        return fmt.Errorf("error while writing initial log entry: %w", err)
+    }
 	cm.becomeFollower(startTerm)
     
     go func() {
         cm.errChan <- server.Serve(lis)
     }()
 
+    // listen for any unrecoverable errors on errChan
     for {
         select {
         case err :=  <-cm.errChan:
@@ -42,11 +45,7 @@ func (cm *CM) Start(opts ...CMOpts) error {
     }
 }
 
-func (cm *CM) Length() uint32 { return cm.log.Length() }
-
-func (cm *CM) Read() ([]*common.Entry, error) { 
-    return cm.log.Read(0, cm.log.Length() - 1) 
-}
+func (cm *CM) Leader() string { return cm.leader }
 
 //
 // Replicate sends commands to the local consensus model,
@@ -67,13 +66,12 @@ func (cm *CM) Replicate(tx tx.Tx) (string, error) {
     }
 
     id := tx.ID()
-    if _, ok := cm.txChans[id]; ok {
-        return "", fmt.Errorf("transaction id %s is already in use", id)
-    }
     txChan := make(chan *common.Entry)
     cm.txChans[id] = txChan
 
-    if err := cm.log.Write(tx.Entries()...); err != nil {
+    entries := tx.Entries()
+
+    if err := cm.log.Write(entries...); err != nil {
         return "", fmt.Errorf("error writing entries to raft consensus log: %v", err)
     }
 

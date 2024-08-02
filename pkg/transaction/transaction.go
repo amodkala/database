@@ -1,6 +1,7 @@
 package transaction 
 
 import (
+    "github.com/google/uuid"
     "github.com/amodkala/raft/pkg/common"
 )
 
@@ -9,7 +10,9 @@ type Tx struct {
     entries []*common.Entry
 }
 
-func New(id string, entries ...*common.Entry) Tx {
+func New(entries ...*common.Entry) Tx {
+
+    id := uuid.NewString()
 
     for _, entry := range entries {
         entry.TxId = id

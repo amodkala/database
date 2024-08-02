@@ -1,54 +1,38 @@
 package main
 
 import (
-    "fmt"
     "log"
-    "time"
+    "net/http"
 
-    ts "google.golang.org/protobuf/types/known/timestamppb"
-
-    "github.com/amodkala/raft/pkg/common"
+    "github.com/amodkala/raft/pkg/handler"
     "github.com/amodkala/raft/pkg/raft"
-    tx "github.com/amodkala/raft/pkg/transaction"
 )
 
 const (
     name = "example"
-    address = "localhost:8080"
+    raftAddress = "localhost:8081"
+    serverAddress = "localhost:8080"
 )
 
 func main() {
 
-    entries := []*common.Entry{}
-
-    now := ts.Now()
-    for i := range 10 {
-        entries = append(entries, &common.Entry{
-            Key: uint32(i),
-            CreateTime: now,
-            Value: fmt.Sprintf("entry %d", i),
-        })
-    }
-
-    cm := raft.New(name, address)
-
-    txId := "test tx"
-    transaction := tx.New(txId, entries...)
+    cm := raft.New(name, serverAddress)
 
     go func() {
-        if err := cm.Start(); err != nil {
+        if err := cm.Start(raftAddress); err != nil {
             log.Fatal(err)
         }
     }()    
 
-    time.Sleep(time.Second)
+    writeHandler := handler.NewWriteHandler(cm)
 
-    if leaderId, err := cm.Replicate(transaction); err != nil {
-        switch leaderId {
-        case "":
-            log.Fatal(err)
-        default:
-            log.Printf("leader is %s", leaderId)
-        }
+    mux := http.NewServeMux()
+    mux.HandleFunc("/write", writeHandler)
+
+    srv := http.Server{
+        Addr: serverAddress,
+        Handler: mux,
     }
+
+    log.Fatal(srv.ListenAndServe())
 }
