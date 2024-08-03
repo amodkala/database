@@ -1,26 +1,26 @@
-package transaction 
+package transaction
 
 import (
-    "github.com/google/uuid"
-    "github.com/amodkala/raft/pkg/common"
+	"github.com/amodkala/raft/pkg/common"
+	"github.com/google/uuid"
 )
 
 type Tx struct {
-    id string
-    entries []*common.Entry
+	id      string
+	entries []*common.Entry
 }
 
 func New(entries ...*common.Entry) Tx {
 
-    id := uuid.NewString()
+	id := uuid.NewString()
 
-    for _, entry := range entries {
-        entry.TxId = id
-    }
+	for _, entry := range entries {
+		entry.TxId = id
+	}
 
-    return Tx {
-        id,
-        entries,
-    }
+	return Tx{
+		id,
+		entries,
+	}
 
 }

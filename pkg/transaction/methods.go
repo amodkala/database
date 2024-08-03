@@ -1,7 +1,7 @@
 package transaction
 
 import (
-    "github.com/amodkala/raft/pkg/common"
+	"github.com/amodkala/raft/pkg/common"
 )
 
 func (t Tx) ID() string { return t.id }

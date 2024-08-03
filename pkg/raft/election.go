@@ -10,7 +10,7 @@ import (
 func (cm *CM) startElectionTimer() {
 	cm.mu.Lock()
 	termStarted := cm.currentTerm
-    cm.lastReset = time.Now()
+	cm.lastReset = time.Now()
 	cm.mu.Unlock()
 
 	timerLength := newDuration(500)
@@ -39,7 +39,7 @@ func (cm *CM) startElectionTimer() {
 func newDuration(min int) time.Duration {
 	rand.Seed(time.Now().UnixNano())
 
-	return time.Duration(min + rand.Intn(min)) * time.Millisecond
+	return time.Duration(min+rand.Intn(min)) * time.Millisecond
 }
 
 func (cm *CM) startElection() {
@@ -47,39 +47,39 @@ func (cm *CM) startElection() {
 	electionTerm := cm.currentTerm
 	cm.lastReset = time.Now()
 	cm.votedFor = cm.self
-    peers := len(cm.peers)
+	peers := len(cm.peers)
 	cm.mu.Unlock()
 
-    if peers == 0 {
-        cm.becomeLeader()
-        return
-    }
+	if peers == 0 {
+		cm.becomeLeader()
+		return
+	}
 
 	votes := 1
 
-    voteChan := make(chan bool, len(cm.peers))
-    ctx, cancel := context.WithCancel(context.Background())
-    defer cancel() // Ensure cancellation at the end of the function
+	voteChan := make(chan bool, len(cm.peers))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure cancellation at the end of the function
 
 	for id, peer := range cm.peers {
 
 		go func(ctx context.Context, id int, peer RaftClient, voteChan chan bool) {
-            defer func() {
-                // Close channel only when all goroutines are done
-                if r := recover(); r != nil && r == "send on closed channel" {
-                    log.Println("Channel was closed, vote result not sent")
-                }
-            }()
+			defer func() {
+				// Close channel only when all goroutines are done
+				if r := recover(); r != nil && r == "send on closed channel" {
+					log.Println("Channel was closed, vote result not sent")
+				}
+			}()
 
 			cm.mu.Lock()
-            lastLogIndex := cm.log.Length() - 1
-            lastLogEntries, err := cm.log.Read(lastLogIndex)
-            if err != nil {
-                cm.errChan <- err
-                return
-            }
-            lastLogEntry := lastLogEntries[0]
-            lastLogTerm := lastLogEntry.RaftTerm
+			lastLogIndex := cm.log.Length() - 1
+			lastLogEntries, err := cm.log.Read(lastLogIndex)
+			if err != nil {
+				cm.errChan <- err
+				return
+			}
+			lastLogEntry := lastLogEntries[0]
+			lastLogTerm := lastLogEntry.RaftTerm
 			cm.mu.Unlock()
 
 			req := &RequestVoteRequest{
@@ -90,47 +90,47 @@ func (cm *CM) startElection() {
 			}
 
 			res, err := peer.RequestVote(ctx, req)
-            if err != nil {
-                log.Printf("%v", err)
-                voteChan <- false
-                cm.errChan <- err
-                return
-            }
+			if err != nil {
+				log.Printf("%v", err)
+				voteChan <- false
+				cm.errChan <- err
+				return
+			}
 
-            cm.mu.Lock()
-            defer cm.mu.Unlock()
+			cm.mu.Lock()
+			defer cm.mu.Unlock()
 
-            if cm.state != "candidate" {
-                return
-            }
+			if cm.state != "candidate" {
+				return
+			}
 
-            if res.Term > electionTerm {
-                cm.becomeFollower(res.Term)
-                return
-            }
+			if res.Term > electionTerm {
+				cm.becomeFollower(res.Term)
+				return
+			}
 
-            select {
-            case <-ctx.Done():
-                log.Printf("Context cancelled, stopping vote request")
-                return
-            case voteChan <- res.Term == electionTerm && res.VoteGranted:
-            }
+			select {
+			case <-ctx.Done():
+				log.Printf("Context cancelled, stopping vote request")
+				return
+			case voteChan <- res.Term == electionTerm && res.VoteGranted:
+			}
 		}(ctx, id, peer, voteChan)
 	}
 
-    // Collect responses until the majority is reached or all votes are counted
-    for i := 0; i < len(cm.peers); i++ {
-        if vote := <-voteChan; vote {
-            votes++
-            if votes > len(cm.peers)/2 {
-                cm.becomeLeader()
-                cancel() // Cancel remaining goroutines
-                break
-            }
-        }
-    }
+	// Collect responses until the majority is reached or all votes are counted
+	for i := 0; i < len(cm.peers); i++ {
+		if vote := <-voteChan; vote {
+			votes++
+			if votes > len(cm.peers)/2 {
+				cm.becomeLeader()
+				cancel() // Cancel remaining goroutines
+				break
+			}
+		}
+	}
 
-    if cm.state == "candidate" {
-        go cm.startElectionTimer()
-    }
+	if cm.state == "candidate" {
+		go cm.startElectionTimer()
+	}
 }
