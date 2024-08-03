@@ -41,10 +41,11 @@ jobs:
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+    - name: Tag Docker image
+      run: |
+        IMAGE_ID=$(docker images --format "{{.ID}}" | head -n 1)
+        docker tag $IMAGE_ID ${{ steps.meta.outputs.tags }}
+
     - name: Push Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+      run: |
+        docker push ${{ steps.meta.outputs.tags }}
