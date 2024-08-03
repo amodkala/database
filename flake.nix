@@ -24,7 +24,13 @@
                     docker = dockerTools.buildLayeredImage {
                         name = "raft";
                         tag = "latest";
-                        config.Cmd = "${bin}/bin/cmd";
+                        config = {
+                            Env = [
+                                "RAFT_ADDRESS=localhost:8081"
+                                "SERVER_ADDRESS=localhost:8080"
+                            ];
+                            Cmd = "${bin}/bin/cmd";
+                        };
                     };
                 };
 

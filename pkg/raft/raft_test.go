@@ -1,6 +1,7 @@
 package raft
 
 import (
+    "os"
 	"testing"
 	"time"
 
@@ -10,11 +11,10 @@ import (
 	ts "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-    raftAddress = "localhost:8080"
-)
-
 var (
+
+    raftAddress = os.Getenv("RAFT_ADDRESS")
+
 	testEntries = []*common.Entry{
 		{
 			RaftTerm:   0,
@@ -38,11 +38,12 @@ var (
 			Value:      "another test value",
 		},
 	}
+
 	testTx = tx.New(testEntries...)
 )
 
 func TestStart(t *testing.T) {
-	cm := New("test-cm-1", "localhost:8080")
+	cm := New("test-start", "localhost:8080")
 	go func() {
 		if err := cm.Start(raftAddress); err != nil {
 			t.Errorf("error on raft cm start: %v", err)
@@ -52,7 +53,7 @@ func TestStart(t *testing.T) {
 }
 
 func TestReplicate(t *testing.T) {
-	cm := New("test-cm-2", "localhost:8081")
+	cm := New("test-replicate", "localhost:8081")
 	go func() {
 		if err := cm.Start(raftAddress); err != nil {
 			t.Errorf("error on raft cm start: %v", err)

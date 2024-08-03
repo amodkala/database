@@ -17,15 +17,16 @@ type CM struct {
 	mu sync.Mutex
 
 	// metadata
-	self       string
-	state      string
-	leader     string
-    raftAddress string
-	peers      []RaftClient
-	lastReset  time.Time
-	txChans    map[string]chan *common.Entry
-	commitChan chan *common.Entry
-	errChan    chan error
+	self        string
+	state       string
+	leader      string
+	raftAddress string
+    peerIndexes map[string]int
+	peers       []RaftClient
+	lastReset   time.Time
+	txChans     map[string]chan *common.Entry
+	commitChan  chan *common.Entry
+	errChan     chan error
 
 	// implementation requirements
 	currentTerm uint32

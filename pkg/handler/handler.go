@@ -17,12 +17,11 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-type ResponseBody struct {
-	TxID string `json:"tx_id"`
+type APIResponseBody struct {
+	TxID string `json:"tx_id,omitempty"`
 }
 
 func NewWriteHandler(cm *raft.CM) func(w http.ResponseWriter, r *http.Request) {
-
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var entries []*common.Entry
@@ -65,7 +64,7 @@ func NewWriteHandler(cm *raft.CM) func(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		resBytes, err := json.Marshal(ResponseBody{
+		resBytes, err := json.Marshal(APIResponseBody{
 			TxID: writeTx.ID(),
 		})
 		if err != nil {
@@ -73,6 +72,7 @@ func NewWriteHandler(cm *raft.CM) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+        w.WriteHeader(http.StatusOK)
 		w.Write(resBytes)
 	}
 }
